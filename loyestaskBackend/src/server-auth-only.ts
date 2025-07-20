@@ -7,10 +7,6 @@ import helmet from "helmet";
 import { corsConfig } from "./config/cors";
 import { connectDB } from "./config/db";
 import authRoutes from "./routes/authRoutes";
-import projectRoutes from "./routes/projectRoutes";
-import userRoutes from "./routes/userRoutes";
-import performanceRoutes from "./routes/performanceRoutes";
-import notificationRoutes from "./routes/notificationRoutes";
 
 // Configurar variables de entorno
 dotenv.config();
@@ -60,26 +56,18 @@ app.get('/health', (req, res) => {
 // Root endpoint
 app.get('/', (req, res) => {
     res.json({
-        message: 'LoyesTask API',
+        message: 'LoyesTask API - Auth Only',
         version: '1.0.0',
         status: 'running',
         endpoints: {
             health: '/health',
-            auth: '/api/auth',
-            projects: '/api/projects',
-            users: '/api/users',
-            performance: '/api/performance',
-            notifications: '/api/notifications'
+            auth: '/api/auth'
         }
     });
 });
 
-//routes
+//routes - solo auth
 app.use("/api/auth", authRoutes);
-app.use("/api/projects", projectRoutes);
-app.use("/api/users", userRoutes);
-app.use("/api/performance", performanceRoutes);
-app.use("/api/notifications", notificationRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {

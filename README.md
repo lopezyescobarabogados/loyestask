@@ -28,7 +28,7 @@
 ### Frontend
 
 1. **Configurar el servicio Frontend en Railway:**
-   - Conecta tu repositorio al directorio `loyestask_Frontend`
+   - Conecta tu repositorio al directorio `loyestaskFrontend`
    - Railway ejecutará automáticamente `npm run build`
 
 2. **Variables de entorno necesarias:**

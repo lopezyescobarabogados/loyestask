@@ -66,7 +66,7 @@ router.post('/validate-token',
 
 router.post('/update-password/:token',
     param('token')
-        .isNumeric().withMessage('El Token no es valido'),
+        .notEmpty().withMessage('El Token no puede ir vacio'),
     body('password')
         .isLength({ min: 8 }).withMessage('El password es muy corto, minimo 8 caracteres'),
     body('password_confirmation')

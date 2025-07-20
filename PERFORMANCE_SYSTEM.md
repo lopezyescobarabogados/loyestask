@@ -103,18 +103,18 @@ Se ha implementado un sistema completo de análisis de desempeño de usuarios qu
 ### 1. Instalar Dependencias
 ```bash
 # Backend - no se requieren nuevas dependencias
-cd loyestask_Backend
+cd loyestaskBackend
 npm install
 
 # Frontend - Chart.js para gráficas
-cd loyestask_Frontend
+cd loyestaskFrontend
 npm install chart.js react-chartjs-2
 ```
 
 ### 2. Migración de Datos
 ```bash
 # Migrar datos existentes para generar métricas iniciales
-cd loyestask_Backend
+cd loyestaskBackend
 npm run migrate-performance
 ```
 
