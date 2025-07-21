@@ -2,7 +2,12 @@ import { CorsOptions } from "cors"
 
 export const corsConfig: CorsOptions = {
     origin: function(origin, callback) {
-        const whitelist = [process.env.FRONTEND_URL]
+        const whitelist = []
+        
+        // Add frontend URL if exists
+        if (process.env.FRONTEND_URL) {
+            whitelist.push(process.env.FRONTEND_URL)
+        }
         
         // Allow requests from localhost during development
         if (process.env.NODE_ENV !== 'production') {
@@ -22,9 +27,12 @@ export const corsConfig: CorsOptions = {
             }
         }
         
-        console.log(`CORS check - Origin: ${origin}, Whitelist: ${JSON.stringify(whitelist)}`);
+        // Remove duplicates and filter out null/undefined values
+        const cleanWhitelist = [...new Set(whitelist.filter(item => item !== null && item !== undefined))]
         
-        if(whitelist.includes(origin) || !origin) {
+        console.log(`CORS check - Origin: ${origin}, Whitelist: ${JSON.stringify(cleanWhitelist)}`);
+        
+        if(cleanWhitelist.includes(origin) || !origin) {
             callback(null, true)
         } else {
             console.log(`CORS blocked origin: ${origin}`);
@@ -34,4 +42,6 @@ export const corsConfig: CorsOptions = {
     credentials: true, // Permitir cookies y headers de autenticación
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    preflightContinue: false,
+    optionsSuccessStatus: 200
 }
