@@ -36,6 +36,11 @@ La aplicación ya está optimizada y lista para el despliegue en Railway con:
    JWT_SECRET=genera_un_secret_muy_seguro_de_al_menos_32_caracteres
    NODE_ENV=production
    
+   # Configuración del Administrador (Opcional)
+   ADMIN_EMAIL=admin@tuempresa.com
+   ADMIN_PASSWORD=TuContraseñaSegura123!
+   ADMIN_NAME=Administrador Principal
+   
    # Opcional - Para emails
    SMTP_HOST=smtp.gmail.com
    SMTP_PORT=587
@@ -47,6 +52,8 @@ La aplicación ya está optimizada y lista para el despliegue en Railway con:
    - `DATABASE_URL` se configura automáticamente por el plugin de MongoDB
    - `PORT` se configura automáticamente por Railway
    - `FRONTEND_URL` se configurará después de desplegar el frontend
+   - Si no configuras `ADMIN_EMAIL`, `ADMIN_PASSWORD` y `ADMIN_NAME`, se usarán valores por defecto
+   - **El usuario administrador se crea automáticamente al iniciar la aplicación**
 
 4. **Railway detectará automáticamente:**
    - `npm install` (dependencias)
@@ -83,21 +90,37 @@ La aplicación ya está optimizada y lista para el despliegue en Railway con:
 2. **Verificar VITE_API_URL en el frontend**
    - Debe apuntar a la URL correcta del backend
 
-### 4. Crear Usuario Administrador
+### 4. Creación Automática del Usuario Administrador ✨
 
-Después de que ambos servicios estén funcionando:
+**¡El usuario administrador se crea automáticamente!** No necesitas acceso a terminal.
 
-1. **Ve al servicio backend en Railway**
-2. **Abre la terminal**
-3. **Ejecuta:**
-   ```bash
-   npm run create-admin:prod
-   ```
+**Credenciales por defecto:**
+- Email: `admin@loyestask.com`
+- Password: `admin123`
+- Rol: `admin`
+
+**Para personalizar las credenciales:**
+1. Ve a las Variables de Entorno del backend en Railway
+2. Agrega las variables opcionales mencionadas en el paso 3
+3. Reinicia el servicio
+
+**En los logs del backend verás:**
+```
+🔧 Verificando usuario administrador...
+👤 Creando usuario administrador...
+✅ Usuario administrador creado exitosamente
+📧 Email: admin@loyestask.com
+🔑 Password: admin123
+⚠️  IMPORTANTE: Cambia la contraseña después del primer login
+```
+
+**⚠️ IMPORTANTE:** Cambia la contraseña inmediatamente después del primer login por seguridad.
 
 ### 5. Verificación
 
 - Backend: `https://tu-backend.railway.app/health` debe devolver `{"status":"OK"}`
 - Frontend: La aplicación debe cargar y permitir login
+- **Login de administrador:** Usa las credenciales mostradas en los logs del backend
 - MongoDB: Verifica que los datos se estén guardando correctamente
 
 ## Optimizaciones Incluidas

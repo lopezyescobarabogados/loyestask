@@ -24,7 +24,7 @@ const createAdmin = async () => {
             role: 'admin',
             confirmed: true
         })
-        
+    
         await admin.save()
         console.log('Usuario administrador creado exitosamente')
         console.log('Email: admin@loyestask.com')
