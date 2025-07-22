@@ -3,7 +3,7 @@ import NotificationPreference from '../models/NotificationPreference';
 import Task from '../models/Task';
 import User from '../models/User';
 import Project from '../models/Project';
-import { transporter } from '../config/nodemailer';
+import { EmailService } from './EmailService';
 
 interface TaskReminderData {
   user: {
@@ -246,8 +246,7 @@ export class NotificationService {
         </html>
       `;
 
-      await transporter.sendMail({
-        from: process.env.SMTP_USER,
+      await EmailService.sendEmail({
         to: user.email,
         subject: `🔔 Recordatorio: "${task.name}" vence en ${preference.reminderDays} días`,
         html: emailHtml,
