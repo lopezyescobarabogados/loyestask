@@ -48,7 +48,7 @@ export class NotificationService {
   public initialize(): void {
     console.log('🔔 Inicializando servicio de notificaciones...');
     
-    // Programar ejecución diaria a las 9:00 AM
+    // Programar ejecución diaria a las 9:00 AM para recordatorios
     this.cronJob = cron.schedule('0 9 * * *', async () => {
       console.log('⏰ Ejecutando verificación de recordatorios...');
       await this.checkAndSendReminders();
@@ -56,7 +56,17 @@ export class NotificationService {
       timezone: 'America/Mexico_City' // Ajustar según tu zona horaria
     });
 
+    // Programar verificación de tareas vencidas a las 10:00 AM
+    const overdueJob = cron.schedule('0 10 * * *', async () => {
+      console.log('⏰ Ejecutando verificación de tareas vencidas...');
+      await this.checkAndNotifyOverdueTasks();
+    }, {
+      timezone: 'America/Mexico_City'
+    });
+
     console.log('✅ Servicio de notificaciones iniciado');
+    console.log('📅 Recordatorios: diariamente a las 9:00 AM');
+    console.log('⚠️ Tareas vencidas: diariamente a las 10:00 AM');
   }
 
   /**
@@ -291,6 +301,158 @@ export class NotificationService {
     } catch (error) {
       console.error('❌ Error al enviar recordatorio de prueba:', error);
       return false;
+    }
+  }
+
+  /**
+   * Notificar cambio de estado de una tarea a todos los colaboradores del proyecto
+   */
+  public async notifyStatusChange(data: {
+    taskId: string;
+    newStatus: string;
+    previousStatus: string;
+    changedBy: { id: string; name: string };
+    projectId: string;
+  }): Promise<void> {
+    try {
+      console.log(`🔄 Enviando notificaciones de cambio de estado para tarea ${data.taskId}`);
+
+      // Obtener información completa de la tarea y proyecto
+      const task = await Task.findById(data.taskId).populate('project');
+      if (!task) {
+        console.error('❌ Tarea no encontrada:', data.taskId);
+        return;
+      }
+
+      const project = await Project.findById(data.projectId).populate('team manager', 'name email');
+      if (!project) {
+        console.error('❌ Proyecto no encontrado:', data.projectId);
+        return;
+      }
+
+      // Recopilar todos los colaboradores (team + manager, excluyendo quien hizo el cambio)
+      const collaborators = [
+        ...(project.team as any[]),
+        project.manager
+      ].filter((user: any) => user._id.toString() !== data.changedBy.id);
+
+      console.log(`📧 Enviando notificaciones a ${collaborators.length} colaboradores`);
+
+      // Enviar notificación a cada colaborador
+      for (const collaborator of collaborators) {
+        await EmailService.sendTaskNotification({
+          to: collaborator.email,
+          userName: collaborator.name,
+          taskName: task.name,
+          projectName: project.projectName,
+          type: 'status_change',
+          additionalData: {
+            oldStatus: data.previousStatus,
+            newStatus: data.newStatus,
+            changedBy: data.changedBy.name
+          }
+        });
+      }
+
+      console.log(`✅ Notificaciones de cambio de estado enviadas correctamente`);
+    } catch (error) {
+      console.error('❌ Error al enviar notificaciones de cambio de estado:', error);
+    }
+  }
+
+  /**
+   * Notificar asignación de tarea a usuarios específicos
+   */
+  public async notifyTaskAssignment(data: {
+    taskId: string;
+    assignedUsers: string[];
+    projectId: string;
+    assignedBy: { id: string; name: string };
+    dueDate?: Date;
+  }): Promise<void> {
+    try {
+      console.log(`📋 Enviando notificaciones de asignación para tarea ${data.taskId}`);
+
+      // Obtener información de la tarea y proyecto
+      const task = await Task.findById(data.taskId);
+      const project = await Project.findById(data.projectId);
+      
+      if (!task || !project) {
+        console.error('❌ Tarea o proyecto no encontrado');
+        return;
+      }
+
+      // Obtener información de usuarios asignados
+      const assignedUsersData = await User.find({
+        _id: { $in: data.assignedUsers }
+      }, 'name email');
+
+      console.log(`📧 Enviando notificaciones a ${assignedUsersData.length} usuarios asignados`);
+
+      // Enviar notificación a cada usuario asignado
+      for (const user of assignedUsersData) {
+        await EmailService.sendTaskNotification({
+          to: user.email,
+          userName: user.name,
+          taskName: task.name,
+          projectName: project.projectName,
+          type: 'assignment',
+          additionalData: {
+            changedBy: data.assignedBy.name,
+            dueDate: data.dueDate?.toLocaleDateString('es-ES')
+          }
+        });
+      }
+
+      console.log(`✅ Notificaciones de asignación enviadas correctamente`);
+    } catch (error) {
+      console.error('❌ Error al enviar notificaciones de asignación:', error);
+    }
+  }
+
+  /**
+   * Verificar y notificar tareas vencidas
+   */
+  public async checkAndNotifyOverdueTasks(): Promise<void> {
+    try {
+      console.log('⏰ Verificando tareas vencidas...');
+      
+      const today = new Date();
+      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+      // Buscar tareas vencidas que no estén completadas
+      const overdueTasks = await Task.find({
+        dueDate: { $lt: startOfDay },
+        status: { $ne: 'completed' }
+      }).populate('project');
+
+      console.log(`📊 Encontradas ${overdueTasks.length} tareas vencidas`);
+
+      let notificationsSent = 0;
+
+      for (const task of overdueTasks) {
+        // Obtener proyecto y colaboradores
+        const project = await Project.findById(task.project).populate('team manager', 'name email');
+        if (!project) continue;
+
+        // Notificar a todos los colaboradores del proyecto
+        const collaborators = [...(project.team as any[]), project.manager];
+
+        for (const collaborator of collaborators) {
+          await EmailService.sendTaskNotification({
+            to: collaborator.email,
+            userName: collaborator.name,
+            taskName: task.name,
+            projectName: project.projectName,
+            type: 'overdue'
+          });
+          notificationsSent++;
+        }
+      }
+
+      console.log(`📧 Se enviaron ${notificationsSent} notificaciones de tareas vencidas`);
+    } catch (error) {
+      console.error('❌ Error al verificar tareas vencidas:', error);
     }
   }
 }

@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import Task from "../models/Task";
 import UserPerformance from "../models/UserPerformance";
 import { calculateWorkingDaysFromStart, calculateWorkingDays } from "../utils/workingDays";
+import { NotificationService } from "../services/NotificationService";
 
 export class TaskController {
     static createTask = async (req: Request, res: Response) => {
@@ -18,6 +19,33 @@ export class TaskController {
             
             req.project.tasks.push(task.id);
             await Promise.allSettled([task.save(), req.project.save()]);
+            
+            // Enviar notificaciones de asignación si hay usuarios asignados
+            try {
+                const notificationService = NotificationService.getInstance();
+                
+                // Obtener IDs de team y manager
+                const teamIds = (req.project.team as any[]).map(member => 
+                    typeof member === 'string' ? member : member._id?.toString() || member.toString()
+                );
+                const managerId = typeof req.project.manager === 'string' 
+                    ? req.project.manager 
+                    : req.project.manager._id?.toString() || req.project.manager.toString();
+                
+                const allAssignedUsers = [...teamIds, managerId];
+                
+                await notificationService.notifyTaskAssignment({
+                    taskId: task.id,
+                    assignedUsers: allAssignedUsers,
+                    projectId: req.project.id,
+                    assignedBy: { id: req.user.id, name: req.user.name },
+                    dueDate: task.dueDate
+                });
+            } catch (notificationError) {
+                console.error('Error al enviar notificaciones de asignación:', notificationError);
+                // No fallar la creación de tarea por error de notificación
+            }
+            
             res.send("Tarea creada correctamente");
         } catch (error) {
             res.status(500).json({ error: "Hubo un error" });
@@ -99,6 +127,22 @@ export class TaskController {
             );
             
             await req.task.save()
+            
+            // Enviar notificaciones de cambio de estado
+            try {
+                const notificationService = NotificationService.getInstance();
+                await notificationService.notifyStatusChange({
+                    taskId: req.task.id,
+                    newStatus: status,
+                    previousStatus: previousStatus,
+                    changedBy: { id: req.user.id, name: req.user.name },
+                    projectId: req.task.project.toString()
+                });
+            } catch (notificationError) {
+                console.error('Error al enviar notificaciones de cambio de estado:', notificationError);
+                // No fallar la actualización por error de notificación
+            }
+            
             res.send("Tarea Actualizada")
         } catch (error) {
             console.log(error)

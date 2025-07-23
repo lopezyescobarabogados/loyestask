@@ -144,7 +144,13 @@ export class EmailService {
         userName: string;
         taskName: string;
         projectName: string;
-        type: 'assignment' | 'reminder' | 'overdue';
+        type: 'assignment' | 'reminder' | 'overdue' | 'status_change';
+        additionalData?: {
+            oldStatus?: string;
+            newStatus?: string;
+            changedBy?: string;
+            dueDate?: string;
+        };
     }): Promise<void> {
         let subject = '';
         let content = '';
@@ -156,6 +162,7 @@ export class EmailService {
                     <p>Hola ${data.userName},</p>
                     <p>Se te ha asignado una nueva tarea: <strong>${data.taskName}</strong></p>
                     <p>Proyecto: <strong>${data.projectName}</strong></p>
+                    ${data.additionalData?.dueDate ? `<p>Fecha límite: <strong>${data.additionalData.dueDate}</strong></p>` : ''}
                     <p>Ingresa a la plataforma para ver los detalles.</p>
                 `;
                 break;
@@ -175,6 +182,26 @@ export class EmailService {
                     <p>La tarea <strong>${data.taskName}</strong> ha vencido.</p>
                     <p>Proyecto: <strong>${data.projectName}</strong></p>
                     <p>Por favor, revisa su estado lo antes posible.</p>
+                `;
+                break;
+            case 'status_change':
+                const statusLabels = {
+                    pending: 'Pendiente',
+                    onHold: 'En espera',
+                    inProgress: 'En progreso', 
+                    underReview: 'En revisión',
+                    completed: 'Completada'
+                };
+                
+                subject = 'Cambio de estado en tarea - loyestask';
+                content = `
+                    <p>Hola ${data.userName},</p>
+                    <p>La tarea <strong>${data.taskName}</strong> ha cambiado de estado.</p>
+                    <p>Proyecto: <strong>${data.projectName}</strong></p>
+                    <p>Estado anterior: <strong>${statusLabels[data.additionalData?.oldStatus as keyof typeof statusLabels] || data.additionalData?.oldStatus}</strong></p>
+                    <p>Estado actual: <strong>${statusLabels[data.additionalData?.newStatus as keyof typeof statusLabels] || data.additionalData?.newStatus}</strong></p>
+                    ${data.additionalData?.changedBy ? `<p>Actualizado por: <strong>${data.additionalData.changedBy}</strong></p>` : ''}
+                    <p>Revisa la plataforma para más detalles.</p>
                 `;
                 break;
         }
