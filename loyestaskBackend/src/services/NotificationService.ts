@@ -444,6 +444,19 @@ export class NotificationService {
     try {
       const { user, task, project, preference } = data;
 
+      // Validar que todos los datos requeridos estén presentes
+      if (!user || !user._id || !user.email) {
+        throw new Error('Datos de usuario incompletos o faltantes');
+      }
+
+      if (!task || !task._id) {
+        throw new Error('Datos de tarea incompletos o faltantes');
+      }
+
+      if (!project || !project._id) {
+        throw new Error('Datos de proyecto incompletos o faltantes');
+      }
+
       // Obtener colaboradores del proyecto
       const projectData = await Project.findById(project._id).populate('team', 'name email');
       const collaborators = projectData?.team || [];
@@ -563,10 +576,53 @@ export class NotificationService {
       ]);
 
       if (!preference) {
+        console.error(`❌ No se encontró preferencia de notificación para usuario ${userId} y tarea ${taskId}`);
         return false;
       }
 
-      await this.sendTaskReminder(preference as any);
+      // Verificar que las propiedades populadas existan
+      if (!preference.user) {
+        console.error(`❌ Usuario no encontrado en la preferencia`);
+        return false;
+      }
+
+      if (!preference.task) {
+        console.error(`❌ Tarea no encontrada en la preferencia`);
+        return false;
+      }
+
+      const populatedTask = preference.task as any;
+      if (!populatedTask.project) {
+        console.error(`❌ Proyecto no encontrado en la tarea`);
+        return false;
+      }
+
+      // Estructurar los datos correctamente para sendTaskReminder
+      const taskReminderData: TaskReminderData = {
+        user: {
+          _id: (preference.user as any)._id.toString(),
+          name: (preference.user as any).name,
+          email: (preference.user as any).email,
+        },
+        task: {
+          _id: populatedTask._id.toString(),
+          name: populatedTask.name,
+          description: populatedTask.description,
+          dueDate: populatedTask.dueDate,
+          status: populatedTask.status,
+          notes: populatedTask.notes || [],
+        },
+        project: {
+          _id: populatedTask.project._id.toString(),
+          projectName: populatedTask.project.projectName,
+          clientName: populatedTask.project.clientName,
+        },
+        preference: {
+          reminderDays: preference.reminderDays,
+        },
+      };
+
+      await this.sendTaskReminder(taskReminderData);
       return true;
     } catch (error) {
       console.error('❌ Error al enviar recordatorio de prueba:', error);
