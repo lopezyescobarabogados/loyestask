@@ -46,6 +46,10 @@ router.post(
     .optional()
     .isBoolean()
     .withMessage('isEnabled debe ser un booleano'),
+  body('isDailyReminderEnabled')
+    .optional()
+    .isBoolean()
+    .withMessage('isDailyReminderEnabled debe ser un booleano'),
   handleInputErrors,
   NotificationController.setTaskPreference
 );
@@ -65,6 +69,10 @@ router.put(
     .optional()
     .isBoolean()
     .withMessage('isEnabled debe ser un booleano'),
+  body('isDailyReminderEnabled')
+    .optional()
+    .isBoolean()
+    .withMessage('isDailyReminderEnabled debe ser un booleano'),
   handleInputErrors,
   NotificationController.setTaskPreference
 );
@@ -91,6 +99,19 @@ router.patch(
     .withMessage('isEnabled debe ser un booleano'),
   handleInputErrors,
   NotificationController.toggleAllNotifications
+);
+
+/**
+ * Activar/desactivar recordatorios diarios para todas las tareas del usuario
+ * PATCH /api/notifications/toggle-daily-reminders
+ */
+router.patch(
+  '/toggle-daily-reminders',
+  body('isDailyReminderEnabled')
+    .isBoolean()
+    .withMessage('isDailyReminderEnabled debe ser un booleano'),
+  handleInputErrors,
+  NotificationController.toggleAllDailyReminders
 );
 
 /**

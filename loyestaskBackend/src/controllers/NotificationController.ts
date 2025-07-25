@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import NotificationPreference from "../models/NotificationPreference";
 import Task from "../models/Task";
-import NotificationService from "../services/NotificationService";
+import { NotificationService } from "../services/NotificationService";
 
 export class NotificationController {
   /**
@@ -35,13 +35,21 @@ export class NotificationController {
   static async setTaskPreference(req: Request, res: Response): Promise<void> {
     try {
       const { taskId } = req.params;
-      const { reminderDays, isEnabled = true } = req.body;
+      const { reminderDays, isEnabled = true, isDailyReminderEnabled = false } = req.body;
       const userId = req.user.id;
 
       // Validar que reminderDays sea un número válido
       if (typeof reminderDays !== 'number' || reminderDays < 0 || reminderDays > 30) {
         res.status(400).json({ 
           error: 'Los días de recordatorio deben ser un número entre 0 y 30' 
+        });
+        return;
+      }
+
+      // Validar que isDailyReminderEnabled sea un booleano
+      if (typeof isDailyReminderEnabled !== 'boolean') {
+        res.status(400).json({ 
+          error: 'El campo isDailyReminderEnabled debe ser un booleano' 
         });
         return;
       }
@@ -69,8 +77,9 @@ export class NotificationController {
         { 
           reminderDays, 
           isEnabled,
+          isDailyReminderEnabled,
           // Reset lastSentAt when updating preferences
-          $unset: { lastSentAt: 1 }
+          $unset: { lastSentAt: 1, lastDailyReminderAt: 1 }
         },
         { 
           new: true, 
@@ -174,17 +183,28 @@ export class NotificationController {
         user: userId, 
         isEnabled: true 
       });
+      const dailyEnabled = await NotificationPreference.countDocuments({ 
+        user: userId, 
+        isDailyReminderEnabled: true 
+      });
       const recentlySent = await NotificationPreference.countDocuments({
         user: userId,
         isEnabled: true,
         lastSentAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } // Últimos 7 días
+      });
+      const dailyRecentlySent = await NotificationPreference.countDocuments({
+        user: userId,
+        isDailyReminderEnabled: true,
+        lastDailyReminderAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } // Últimos 7 días
       });
 
       res.json({
         total,
         enabled,
         disabled: total - enabled,
+        dailyEnabled,
         recentlySent,
+        dailyRecentlySent,
       });
     } catch (error) {
       console.error('Error al obtener resumen:', error);
@@ -247,6 +267,40 @@ export class NotificationController {
       });
     } catch (error) {
       console.error('Error al modificar notificaciones:', error);
+      res.status(500).json({ error: 'Error interno del servidor' });
+    }
+  }
+
+  /**
+   * Activar/desactivar recordatorios diarios para todas las tareas del usuario
+   */
+  static async toggleAllDailyReminders(req: Request, res: Response): Promise<void> {
+    try {
+      const { isDailyReminderEnabled } = req.body;
+      const userId = req.user.id;
+
+      if (typeof isDailyReminderEnabled !== 'boolean') {
+        res.status(400).json({ 
+          error: 'El campo isDailyReminderEnabled debe ser un booleano' 
+        });
+        return;
+      }
+
+      const result = await NotificationPreference.updateMany(
+        { user: userId },
+        { 
+          isDailyReminderEnabled,
+          // Reset lastDailyReminderAt when re-enabling
+          ...(isDailyReminderEnabled && { $unset: { lastDailyReminderAt: 1 } })
+        }
+      );
+
+      res.json({
+        message: `Se ${isDailyReminderEnabled ? 'activaron' : 'desactivaron'} todos los recordatorios diarios correctamente`,
+        modifiedCount: result.modifiedCount,
+      });
+    } catch (error) {
+      console.error('Error al modificar recordatorios diarios:', error);
       res.status(500).json({ error: 'Error interno del servidor' });
     }
   }

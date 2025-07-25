@@ -75,8 +75,8 @@ export class EmailService {
         sendSmtpEmail.subject = emailData.subject;
         sendSmtpEmail.htmlContent = emailData.html;
         sendSmtpEmail.sender = emailData.from || {
-            name: 'loyestask',
-            email: process.env.FROM_EMAIL || 'admin@loyestask.com'
+            name: process.env.EMAIL_FROM_NAME || 'LoyesTask',
+            email: process.env.FROM_EMAIL || process.env.EMAIL_FROM || 'admin@loyestask.com'
         };
 
         const response = await this.brevoClient.sendTransacEmail(sendSmtpEmail);
@@ -94,7 +94,7 @@ export class EmailService {
         const mailOptions = {
             from: emailData.from 
                 ? `${emailData.from.name} <${emailData.from.email}>` 
-                : `loyestask <${process.env.FROM_EMAIL || 'admin@loyestask.com'}>`,
+                : `${process.env.EMAIL_FROM_NAME || 'LoyesTask'} <${process.env.FROM_EMAIL || process.env.EMAIL_FROM || 'admin@loyestask.com'}>`,
             to: emailData.to,
             subject: emailData.subject,
             html: emailData.html

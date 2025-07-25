@@ -380,13 +380,15 @@ export class PerformanceController {
           date: latestEvaluation.createdAt,
           evaluatedBy: latestEvaluation.evaluatedBy
         } : null,
-        recentTasks: performance.slice(0, 5).map(p => ({
-          task: p.task,
-          project: p.project,
-          isCompleted: p.isCompleted,
-          isOnTime: p.isOnTime,
-          completionTime: p.completionTime
-        }))
+        recentTasks: performance.slice(0, 5)
+          .filter(p => p.task && p.project) // Filtrar referencias nulas
+          .map(p => ({
+            task: p.task,
+            project: p.project,
+            isCompleted: p.isCompleted,
+            isOnTime: p.isOnTime,
+            completionTime: p.completionTime
+          }))
       });
     } catch (error) {
       console.error('Error al obtener dashboard de usuario:', error);

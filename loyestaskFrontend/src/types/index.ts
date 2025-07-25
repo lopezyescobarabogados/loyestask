@@ -49,6 +49,21 @@ export type NoteFormData = Pick<Note, 'content'>
 /** Tasks */
 export const taskStatusShema = z.enum(["pending", "onHold", "inProgress", "underReview", "completed"])
 export type TaskStatus = z.infer<typeof taskStatusShema>
+
+// Schema para archivos adjuntos
+export const taskFileSchema = z.object({
+    _id: z.string(),
+    fileName: z.string(), // Corregido: backend usa fileName
+    originalName: z.string(),
+    mimeType: z.string(),
+    fileSize: z.number(),
+    filePath: z.string(),
+    uploadedAt: z.string(),
+    uploadedBy: z.union([z.string(), userSchema]) // Puede ser string o objeto User poblado
+})
+
+export type TaskFile = z.infer<typeof taskFileSchema>
+
 export const taskSchema = z.object({
     _id: z.string(),
     name: z.string(),
@@ -63,6 +78,7 @@ export const taskSchema = z.object({
     notes: z.array(noteSchema.extend({
         createdBy: userSchema
     })),
+    archive: z.array(taskFileSchema).optional(),
     dueDate: z.string(),
     createdAt: z.string(),
     updatedAt: z.string(),
@@ -315,7 +331,9 @@ export const notificationPreferenceSchema = z.object({
     }),
     reminderDays: z.number().min(0).max(30),
     isEnabled: z.boolean(),
+    isDailyReminderEnabled: z.boolean(),
     lastSentAt: z.string().optional(),
+    lastDailyReminderAt: z.string().optional(),
     createdAt: z.string(),
     updatedAt: z.string(),
 })
@@ -324,12 +342,15 @@ export const notificationSummarySchema = z.object({
     total: z.number(),
     enabled: z.number(),
     disabled: z.number(),
+    dailyEnabled: z.number(),
     recentlySent: z.number(),
+    dailyRecentlySent: z.number(),
 })
 
 export const createNotificationPreferenceSchema = z.object({
     reminderDays: z.number().min(0).max(30),
     isEnabled: z.boolean().optional(),
+    isDailyReminderEnabled: z.boolean().optional(),
 })
 
 export type NotificationPreference = z.infer<typeof notificationPreferenceSchema>

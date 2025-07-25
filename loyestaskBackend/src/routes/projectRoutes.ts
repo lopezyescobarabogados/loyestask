@@ -9,6 +9,8 @@ import { hasAuthorization, taskExists, taskBelongsToProject } from "../middlewar
 import { authenticate } from "../middleware/auth";
 import { TeamMemberController } from "../controllers/TeamController";
 import { NoteController } from "../controllers/NoteController";
+import { FileController } from "../controllers/FileController";
+import { uploadMiddleware, handleMulterError } from "../services/FileService";
 
 const router = Router();
 
@@ -188,6 +190,68 @@ router.delete('/:projectId/tasks/:taskId/notes/:noteId',
   taskExists,
   taskBelongsToProject,
   NoteController.deleteNote
+);
+
+/** Routes for Files */
+// Subir archivos a una tarea
+router.post('/:projectId/tasks/:taskId/files',
+  param('taskId').isMongoId().withMessage('ID de tarea no válido'),
+  handleInputErrors,
+  taskExists,
+  taskBelongsToProject,
+  uploadMiddleware.array('files', 10), // Máximo 10 archivos por petición
+  handleMulterError,
+  FileController.uploadFiles
+);
+
+// Obtener lista de archivos de una tarea
+router.get('/:projectId/tasks/:taskId/files',
+  param('taskId').isMongoId().withMessage('ID de tarea no válido'),
+  handleInputErrors,
+  taskExists,
+  taskBelongsToProject,
+  FileController.getTaskFiles
+);
+
+// Descargar un archivo específico
+router.get('/:projectId/tasks/:taskId/files/:fileId/download',
+  param('taskId').isMongoId().withMessage('ID de tarea no válido'),
+  param('fileId').isMongoId().withMessage('ID de archivo no válido'),
+  handleInputErrors,
+  taskExists,
+  taskBelongsToProject,
+  FileController.downloadFile
+);
+
+// Eliminar un archivo específico
+router.delete('/:projectId/tasks/:taskId/files/:fileId',
+  param('taskId').isMongoId().withMessage('ID de tarea no válido'),
+  param('fileId').isMongoId().withMessage('ID de archivo no válido'),
+  handleInputErrors,
+  taskExists,
+  taskBelongsToProject,
+  FileController.deleteFile
+);
+
+// Reemplazar un archivo existente
+router.put('/:projectId/tasks/:taskId/files/:fileId',
+  param('taskId').isMongoId().withMessage('ID de tarea no válido'),
+  param('fileId').isMongoId().withMessage('ID de archivo no válido'),
+  handleInputErrors,
+  taskExists,
+  taskBelongsToProject,
+  uploadMiddleware.single('file'),
+  handleMulterError,
+  FileController.replaceFile
+);
+
+// Obtener estadísticas de archivos de una tarea
+router.get('/:projectId/tasks/:taskId/files/stats',
+  param('taskId').isMongoId().withMessage('ID de tarea no válido'),
+  handleInputErrors,
+  taskExists,
+  taskBelongsToProject,
+  FileController.getFileStats
 );
 
 export default router;

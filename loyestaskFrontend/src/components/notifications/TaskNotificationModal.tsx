@@ -31,6 +31,7 @@ const reminderOptions = [
 export default function TaskNotificationModal({ task, show, onClose }: TaskNotificationModalProps) {
   const [reminderDays, setReminderDays] = useState(3);
   const [isEnabled, setIsEnabled] = useState(true);
+  const [isDailyReminderEnabled, setIsDailyReminderEnabled] = useState(false);
   const [hasExistingPreference, setHasExistingPreference] = useState(false);
 
   const queryClient = useQueryClient();
@@ -48,17 +49,19 @@ export default function TaskNotificationModal({ task, show, onClose }: TaskNotif
     if (existingPreference) {
       setReminderDays(existingPreference.reminderDays);
       setIsEnabled(existingPreference.isEnabled);
+      setIsDailyReminderEnabled(existingPreference.isDailyReminderEnabled || false);
       setHasExistingPreference(true);
     } else {
       setReminderDays(3);
       setIsEnabled(true);
+      setIsDailyReminderEnabled(false);
       setHasExistingPreference(false);
     }
   }, [existingPreference]);
 
   // Mutación para crear/actualizar preferencia
   const { mutate: savePreference, isPending: isSaving } = useMutation({
-    mutationFn: (data: { reminderDays: number; isEnabled: boolean }) => {
+    mutationFn: (data: { reminderDays: number; isEnabled: boolean; isDailyReminderEnabled: boolean }) => {
       if (hasExistingPreference) {
         return updateTaskNotificationPreference(task._id, data);
       } else {
@@ -104,7 +107,7 @@ export default function TaskNotificationModal({ task, show, onClose }: TaskNotif
   });
 
   const handleSave = () => {
-    savePreference({ reminderDays, isEnabled });
+    savePreference({ reminderDays, isEnabled, isDailyReminderEnabled });
   };
 
   const handleRemove = () => {
@@ -230,6 +233,31 @@ export default function TaskNotificationModal({ task, show, onClose }: TaskNotif
                       </div>
                     )}
 
+                    {/* Activar recordatorios diarios para esta tarea */}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <label className="text-sm font-medium text-gray-900">
+                          Incluir en recordatorios diarios
+                        </label>
+                        <p className="text-sm text-gray-500">
+                          Esta tarea aparecerá en el resumen diario de tareas (8:00 AM)
+                        </p>
+                      </div>
+                      <Switch
+                        checked={isDailyReminderEnabled}
+                        onChange={setIsDailyReminderEnabled}
+                        className={`${
+                          isDailyReminderEnabled ? 'bg-orange-600' : 'bg-gray-200'
+                        } relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2`}
+                      >
+                        <span
+                          className={`${
+                            isDailyReminderEnabled ? 'translate-x-6' : 'translate-x-1'
+                          } inline-block h-4 w-4 transform rounded-full bg-white transition-transform`}
+                        />
+                      </Switch>
+                    </div>
+
                     {/* Botones de acción */}
                     <div className="flex flex-col space-y-3">
                       <div className="flex space-x-3">
@@ -266,12 +294,20 @@ export default function TaskNotificationModal({ task, show, onClose }: TaskNotif
                     </div>
 
                     {/* Información adicional */}
-                    {isEnabled && (
+                    {(isEnabled || isDailyReminderEnabled) && (
                       <div className="bg-blue-50 p-3 rounded-lg">
                         <p className="text-sm text-blue-700">
-                          💡 <strong>Tip:</strong> Los recordatorios se envían diariamente a las 9:00 AM.
-                          Solo recibirás un recordatorio por día para cada tarea.
+                          💡 <strong>Tips:</strong>
                         </p>
+                        <ul className="text-sm text-blue-700 mt-1 list-disc pl-5 space-y-1">
+                          {isEnabled && (
+                            <li>Los recordatorios específicos se envían diariamente a las 9:00 AM.</li>
+                          )}
+                          {isDailyReminderEnabled && (
+                            <li>Los recordatorios diarios se envían a las 8:00 AM con un resumen.</li>
+                          )}
+                          <li>Solo recibirás un recordatorio por día para cada tarea.</li>
+                        </ul>
                       </div>
                     )}
                   </div>

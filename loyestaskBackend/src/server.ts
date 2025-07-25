@@ -11,12 +11,17 @@ import projectRoutes from "./routes/projectRoutes";
 import userRoutes from "./routes/userRoutes";
 import performanceRoutes from "./routes/performanceRoutes";
 import notificationRoutes from "./routes/notificationRoutes";
+import configRoutes from "./routes/configRoutes";
+import { ensureUploadsDirectory } from "./services/FileService";
 
 // Configurar variables de entorno
 dotenv.config();
 
 // Conectar a la base de datos
 connectDB();
+
+// Inicializar directorio de uploads
+ensureUploadsDirectory().catch(console.error);
 
 const app = express();
 
@@ -69,7 +74,8 @@ app.get('/', (req, res) => {
             projects: '/api/projects',
             users: '/api/users',
             performance: '/api/performance',
-            notifications: '/api/notifications'
+            notifications: '/api/notifications',
+            config: '/api/config'
         }
     });
 });
@@ -80,6 +86,7 @@ app.use("/api/projects", projectRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/performance", performanceRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/config", configRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {

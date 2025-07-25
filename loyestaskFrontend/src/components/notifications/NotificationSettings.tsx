@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-hot-toast';
 import { Switch } from '@headlessui/react';
@@ -13,9 +13,11 @@ import {
   getUserNotificationPreferences,
   getNotificationSummary,
   toggleAllNotifications,
+  toggleAllDailyReminders,
   updateTaskNotificationPreference,
   removeTaskNotificationPreference,
 } from '@/api/NotificationAPI';
+import { useSystemConfig } from '@/hooks/useSystemConfig';
 import type { NotificationPreference } from '@/types/index';
 
 const statusLabels: Record<string, string> = {
@@ -46,7 +48,11 @@ const reminderLabels: Record<number, string> = {
 
 export default function NotificationSettings() {
   const [globalEnabled, setGlobalEnabled] = useState(true);
+  const [dailyRemindersEnabled, setDailyRemindersEnabled] = useState(true);
   const queryClient = useQueryClient();
+
+  // Obtener configuración del sistema
+  const { displayTexts } = useSystemConfig();
 
   // Consultar preferencias del usuario
   const { data: preferences = [], isLoading: isLoadingPreferences } = useQuery({
@@ -60,12 +66,34 @@ export default function NotificationSettings() {
     queryFn: getNotificationSummary,
   });
 
+  // Actualizar estados basándose en el resumen
+  useEffect(() => {
+    if (summary) {
+      setGlobalEnabled(summary.enabled > 0);
+      setDailyRemindersEnabled(Boolean(summary.dailyEnabled));
+    }
+  }, [summary]);
+
   // Mutación para activar/desactivar todas las notificaciones
   const { mutate: toggleAll, isPending: isTogglingAll } = useMutation({
     mutationFn: (enabled: boolean) => toggleAllNotifications(enabled),
     onSuccess: (data) => {
       toast.success(data.message);
       setGlobalEnabled(!globalEnabled);
+      queryClient.invalidateQueries({ queryKey: ['userNotificationPreferences'] });
+      queryClient.invalidateQueries({ queryKey: ['notificationSummary'] });
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+
+  // Mutación para activar/desactivar recordatorios diarios
+  const { mutate: toggleDailyReminders, isPending: isTogglingDaily } = useMutation({
+    mutationFn: (enabled: boolean) => toggleAllDailyReminders(enabled),
+    onSuccess: (data) => {
+      toast.success(data.message);
+      setDailyRemindersEnabled(!dailyRemindersEnabled);
       queryClient.invalidateQueries({ queryKey: ['userNotificationPreferences'] });
       queryClient.invalidateQueries({ queryKey: ['notificationSummary'] });
     },
@@ -102,6 +130,10 @@ export default function NotificationSettings() {
 
   const handleToggleAll = () => {
     toggleAll(!globalEnabled);
+  };
+
+  const handleToggleDailyReminders = () => {
+    toggleDailyReminders(!dailyRemindersEnabled);
   };
 
   const handleTogglePreference = (preference: NotificationPreference) => {
@@ -178,7 +210,7 @@ export default function NotificationSettings() {
 
         {/* Estadísticas */}
         {summary && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div className="bg-blue-50 p-4 rounded-lg">
               <div className="flex items-center">
                 <BellIcon className="h-8 w-8 text-blue-500" />
@@ -215,6 +247,66 @@ export default function NotificationSettings() {
                 <div className="ml-3">
                   <p className="text-sm font-medium text-purple-900">Enviadas (7d)</p>
                   <p className="text-2xl font-bold text-purple-600">{summary.recentlySent}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-orange-50 p-4 rounded-lg">
+              <div className="flex items-center">
+                <ClockIcon className="h-8 w-8 text-orange-500" />
+                <div className="ml-3">
+                  <p className="text-sm font-medium text-orange-900">Diarias (7d)</p>
+                  <p className="text-2xl font-bold text-orange-600">{summary.dailyRecentlySent || 0}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Configuración de Recordatorios Diarios */}
+      <div className="bg-white shadow rounded-lg p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-lg font-medium text-gray-900 flex items-center">
+              <ClockIcon className="h-5 w-5 text-orange-500 mr-2" />
+              Recordatorios Diarios
+            </h3>
+            <p className="text-sm text-gray-600 mt-1">
+              {displayTexts.dailyReminderDescription}
+            </p>
+          </div>
+          
+          <Switch
+            checked={dailyRemindersEnabled}
+            onChange={handleToggleDailyReminders}
+            disabled={isTogglingDaily}
+            className={`${
+              dailyRemindersEnabled ? 'bg-orange-600' : 'bg-gray-200'
+            } relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:opacity-50`}
+          >
+            <span
+              className={`${
+                dailyRemindersEnabled ? 'translate-x-6' : 'translate-x-1'
+              } inline-block h-4 w-4 transform rounded-full bg-white transition-transform`}
+            />
+          </Switch>
+        </div>
+
+        {dailyRemindersEnabled && (
+          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+            <div className="flex">
+              <ClockIcon className="h-5 w-5 text-orange-400" />
+              <div className="ml-3">
+                <h4 className="text-sm font-medium text-orange-800">¿Cómo funcionan?</h4>
+                <div className="mt-2 text-sm text-orange-700">
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>Se envía un email diario a las {displayTexts.dailyReminderTime} con el resumen de tus tareas</li>
+                    <li>Solo se envía si tienes tareas pendientes con fechas próximas</li>
+                    <li>Incluye tareas que vencen en los próximos 7 días</li>
+                    <li>Se puede desactivar en cualquier momento</li>
+                    <li>{displayTexts.combinedScheduleInfo}</li>
+                  </ul>
                 </div>
               </div>
             </div>
@@ -322,10 +414,12 @@ export default function NotificationSettings() {
             <h3 className="text-sm font-medium text-blue-800">Información importante</h3>
             <div className="mt-2 text-sm text-blue-700">
               <ul className="list-disc pl-5 space-y-1">
-                <li>Los recordatorios se envían diariamente a las 9:00 AM hora local.</li>
+                <li>Los recordatorios de tareas específicas se envían diariamente a las 9:00 AM hora local.</li>
+                <li>Los recordatorios diarios generales se envían a las 8:00 AM con un resumen de tareas.</li>
                 <li>Solo recibirás un recordatorio por día para cada tarea.</li>
                 <li>Los recordatorios se pausan automáticamente cuando una tarea se completa.</li>
                 <li>Puedes probar el envío de recordatorios desde la configuración de cada tarea.</li>
+                <li>Los recordatorios diarios incluyen solo tareas que vencen en los próximos 7 días.</li>
               </ul>
             </div>
           </div>

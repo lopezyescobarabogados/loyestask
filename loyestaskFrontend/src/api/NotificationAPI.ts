@@ -114,6 +114,21 @@ export async function toggleAllNotifications(isEnabled: boolean): Promise<{ mess
 }
 
 /**
+ * Activar/desactivar recordatorios diarios para todas las tareas del usuario
+ */
+export async function toggleAllDailyReminders(isDailyReminderEnabled: boolean): Promise<{ message: string; modifiedCount: number }> {
+  try {
+    const { data } = await api.patch('/notifications/toggle-daily-reminders', { isDailyReminderEnabled });
+    return data;
+  } catch (error) {
+    if (isAxiosError(error) && error.response) {
+      throw new Error(error.response.data.error);
+    }
+    throw new Error('Error al modificar recordatorios diarios');
+  }
+}
+
+/**
  * Enviar recordatorio de prueba para una tarea
  */
 export async function sendTestReminder(taskId: string): Promise<string> {

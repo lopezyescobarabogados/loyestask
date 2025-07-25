@@ -35,6 +35,7 @@ export async function getTaskById({projectId, taskId} : Pick<TaskAPI, 'projectId
         if(isAxiosError(error) && error.response){
             throw new Error(error.response.data.error)
         }
+        throw new Error("Error de conexión al obtener la tarea")
     }
 }
 

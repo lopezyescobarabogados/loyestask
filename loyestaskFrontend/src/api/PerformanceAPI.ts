@@ -91,7 +91,27 @@ export async function getUserEvaluations(userId: string): Promise<UserEvaluation
 export async function getUserDashboard(): Promise<UserDashboard> {
   try {
     const { data } = await api.get<UserDashboard>('/performance/dashboard');
-    return data;
+    
+    // Validación y sanitización de datos defensiva
+    const sanitizedData = {
+      ...data,
+      recentTasks: (data.recentTasks || []).filter(task => 
+        task && 
+        task.task && 
+        task.project && 
+        typeof task.task === 'object' && 
+        typeof task.project === 'object' &&
+        task.task.name &&
+        task.project.projectName
+      ),
+      latestEvaluation: data.latestEvaluation && 
+        data.latestEvaluation.evaluatedBy && 
+        data.latestEvaluation.evaluatedBy.name 
+          ? data.latestEvaluation 
+          : null
+    };
+    
+    return sanitizedData;
   } catch (error) {
     if (isAxiosError(error) && error.response) {
       throw new Error(error.response.data.error);

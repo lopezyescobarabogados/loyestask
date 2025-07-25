@@ -3,10 +3,28 @@ import server from "./server";
 import { connectDB } from "./config/db";
 import { NotificationService } from "./services/NotificationService";
 import { InitializationService } from "./services/InitializationService";
+import { EnvironmentValidator } from "./utils/environmentValidator";
 
 // Función principal de inicio
 async function startServer() {
   try {
+    // Validar variables de entorno
+    console.log(colors.magenta.bold("🔧 LoyesTask - Sistema de Gestión de Tareas"));
+    
+    const isValidEnvironment = EnvironmentValidator.validateEnvironment();
+    
+    if (!isValidEnvironment) {
+      console.log(colors.red.bold("❌ Error: Variables de entorno inválidas"));
+      console.log(colors.yellow("💡 Revisa la configuración antes de continuar"));
+      
+      if (process.env.NODE_ENV === 'production') {
+        EnvironmentValidator.printRailwayCommands();
+        process.exit(1);
+      } else {
+        console.log(colors.yellow("⚠️  Continuando en modo desarrollo..."));
+      }
+    }
+
     // Conectar a la base de datos
     await connectDB();
     console.log(colors.green.bold("✅ Base de datos conectada"));

@@ -5,7 +5,9 @@ export interface INotificationPreference extends Document {
   task: Types.ObjectId;
   reminderDays: number; // Días antes del dueDate para enviar recordatorio
   isEnabled: boolean;
+  isDailyReminderEnabled: boolean; // Nueva opción para recordatorios diarios
   lastSentAt?: Date;
+  lastDailyReminderAt?: Date; // Último recordatorio diario enviado
   createdAt: Date;
   updatedAt: Date;
 }
@@ -32,7 +34,14 @@ const notificationPreferenceSchema: Schema = new Schema(
       type: Boolean,
       default: true,
     },
+    isDailyReminderEnabled: {
+      type: Boolean,
+      default: false, // Por defecto deshabilitado
+    },
     lastSentAt: {
+      type: Date,
+    },
+    lastDailyReminderAt: {
       type: Date,
     },
   },
@@ -49,6 +58,12 @@ notificationPreferenceSchema.index({
   isEnabled: 1, 
   reminderDays: 1,
   lastSentAt: 1 
+});
+
+// Índice para recordatorios diarios
+notificationPreferenceSchema.index({
+  isDailyReminderEnabled: 1,
+  lastDailyReminderAt: 1
 });
 
 const NotificationPreference = mongoose.model<INotificationPreference>(
