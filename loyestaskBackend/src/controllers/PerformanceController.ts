@@ -5,6 +5,7 @@ import UserEvaluation from "../models/UserEvaluation";
 import { IProject } from "../models/Project";
 import { ITask } from "../models/Task";
 import { calculatePerformanceMetrics, calculateWorkingDays } from "../utils/workingDays";
+import { calculateAutomatedMetrics, evaluatePerformanceAutomatically, generateMonthlyReport } from "../utils/automatedMetrics";
 
 export class PerformanceController {
   /**
@@ -22,12 +23,54 @@ export class PerformanceController {
       
       const usersPerformance = await Promise.all(
         users.map(async (user) => {
+          // Filtrar solo registros válidos y completados con agregación optimizada
+          const performanceAggregation = await UserPerformance.aggregate([
+            {
+              $match: {
+                user: user._id,
+                createdAt: { $gte: startDate },
+                isCompleted: true,
+                completionTime: { $ne: null, $exists: true },
+                isOnTime: { $ne: null, $exists: true }
+              }
+            },
+            {
+              $lookup: {
+                from: 'tasks',
+                localField: 'task',
+                foreignField: '_id',
+                as: 'taskData',
+                pipeline: [{ $project: { name: 1 } }]
+              }
+            },
+            {
+              $lookup: {
+                from: 'projects',
+                localField: 'project',
+                foreignField: '_id',
+                as: 'projectData',
+                pipeline: [{ $project: { projectName: 1 } }]
+              }
+            },
+            {
+              $project: {
+                completionTime: 1,
+                isOnTime: 1,
+                dueDate: 1,
+                createdAt: 1,
+                task: { $arrayElemAt: ['$taskData', 0] },
+                project: { $arrayElemAt: ['$projectData', 0] },
+                statusChanges: 1
+              }
+            }
+          ]);
+
           const performance = await UserPerformance.find({
             user: user._id,
             createdAt: { $gte: startDate }
-          }).populate('task', 'name').populate('project', 'projectName');
+          }).lean(); // Usar lean() para mejor performance
+          const completedTasks = performanceAggregation;
           
-          const completedTasks = performance.filter(p => p.isCompleted && p.completionTime != null);
           const metricsData = completedTasks.map(p => ({
             completionTime: p.completionTime!,
             isOnTime: p.isOnTime!,
@@ -41,6 +84,10 @@ export class PerformanceController {
             user: user._id
           }).sort({ createdAt: -1 });
           
+          // Calcular métricas automatizadas objetivas
+          const automatedMetrics = calculateAutomatedMetrics(performance, periodDays);
+          const performanceEvaluation = evaluatePerformanceAutomatically(automatedMetrics);
+
           return {
             user: {
               _id: user._id,
@@ -53,15 +100,17 @@ export class PerformanceController {
               completedTasks: completedTasks.length,
               tasksInProgress: performance.filter(p => !p.isCompleted).length,
             },
+            automatedMetrics,
+            performanceEvaluation,
             latestEvaluation: latestEvaluation ? {
               score: latestEvaluation.score,
               date: latestEvaluation.createdAt
             } : null,
-            performance: performance.map(p => ({
+            performance: completedTasks.map(p => ({
               task: p.task,
               project: p.project,
               completionTime: p.completionTime,
-              isCompleted: p.isCompleted,
+              isCompleted: true,
               isOnTime: p.isOnTime,
               statusChanges: p.statusChanges
             }))
@@ -71,7 +120,9 @@ export class PerformanceController {
       
       res.json(usersPerformance);
     } catch (error) {
-      console.error('Error al obtener métricas de rendimiento:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error al obtener métricas de rendimiento:', error);
+      }
       res.status(500).json({ error: "Error al obtener métricas de rendimiento" });
     }
   };
@@ -168,7 +219,9 @@ export class PerformanceController {
         }))
       });
     } catch (error) {
-      console.error('Error al obtener métricas de usuario:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error al obtener métricas de usuario:', error);
+      }
       res.status(500).json({ error: "Error al obtener métricas de usuario" });
     }
   };
@@ -393,6 +446,75 @@ export class PerformanceController {
     } catch (error) {
       console.error('Error al obtener dashboard de usuario:', error);
       res.status(500).json({ error: "Error al obtener dashboard de usuario" });
+    }
+  };
+
+  /**
+   * Generar evaluación automatizada objetiva (sin intervención humana)
+   */
+  static generateAutomatedEvaluation = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { userId } = req.params;
+      const { period = 30 } = req.query;
+      const periodDays = parseInt(period as string);
+      
+      const user = await User.findById(userId);
+      if (!user) {
+        res.status(404).json({ error: "Usuario no encontrado" });
+        return;
+      }
+
+      // Obtener datos de performance del período
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - periodDays);
+      
+      const performance = await UserPerformance.find({
+        user: userId,
+        createdAt: { $gte: startDate }
+      }).lean();
+
+      // Calcular métricas automatizadas
+      const automatedMetrics = calculateAutomatedMetrics(performance, periodDays);
+      const evaluation = evaluatePerformanceAutomatically(automatedMetrics);
+
+      // Generar reportes mensuales de los últimos 3 meses
+      const currentDate = new Date();
+      const monthlyReports = [];
+      
+      for (let i = 0; i < 3; i++) {
+        const reportDate = new Date(currentDate);
+        reportDate.setMonth(reportDate.getMonth() - i);
+        
+        const report = generateMonthlyReport(
+          performance, 
+          reportDate.getMonth() + 1, 
+          reportDate.getFullYear()
+        );
+        monthlyReports.push(report);
+      }
+
+      res.json({
+        user: {
+          _id: user._id,
+          name: user.name,
+          email: user.email
+        },
+        evaluationPeriod: {
+          days: periodDays,
+          startDate,
+          endDate: new Date()
+        },
+        automatedMetrics,
+        evaluation,
+        monthlyReports,
+        generatedAt: new Date(),
+        isAutomated: true
+      });
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error al generar evaluación automatizada:', error);
+      }
+      res.status(500).json({ error: "Error al generar evaluación automatizada" });
     }
   };
 }

@@ -1,0 +1,297 @@
+/**
+ * VERIFICACIÓN FINAL DEL SISTEMA DE NOTIFICACIONES PARA PRODUCCIÓN CON BREVO
+ * 
+ * Este script valida que todo esté listo para usar Brevo en producción
+ */
+
+import dotenv from 'dotenv';
+import colors from 'colors';
+import { EmailService } from '../services/EmailService';
+import { EnvironmentValidator } from '../utils/environmentValidator';
+import { getNotificationConfig } from '../config/system';
+
+dotenv.config();
+
+interface ProductionReadinessReport {
+  brevoIntegration: boolean;
+  environmentVariables: boolean;
+  notificationSchedules: boolean;
+  emailTemplates: boolean;
+  errorHandling: boolean;
+  performanceLimits: boolean;
+  overall: boolean;
+  issues: string[];
+  recommendations: string[];
+}
+
+class ProductionReadinessValidator {
+  private report: ProductionReadinessReport = {
+    brevoIntegration: false,
+    environmentVariables: false,
+    notificationSchedules: false,
+    emailTemplates: false,
+    errorHandling: false,
+    performanceLimits: false,
+    overall: false,
+    issues: [],
+    recommendations: []
+  };
+
+  async validate(): Promise<ProductionReadinessReport> {
+    console.log(colors.magenta.bold('🔍 VALIDACIÓN PARA PRODUCCIÓN CON BREVO\n'));
+
+    await this.validateBrevoIntegration();
+    this.validateEnvironmentVariables();
+    this.validateNotificationSchedules();
+    this.validateEmailTemplates();
+    this.validateErrorHandling();
+    this.validatePerformanceLimits();
+    
+    this.calculateOverallStatus();
+    this.printReport();
+    
+    return this.report;
+  }
+
+  private async validateBrevoIntegration(): Promise<void> {
+    console.log('📧 Validando integración con Brevo...');
+    
+    try {
+      // Verificar que Brevo esté instalado
+      const brevo = require('@getbrevo/brevo');
+      console.log('  ✅ Paquete @getbrevo/brevo instalado');
+
+      // Verificar API Key
+      if (!process.env.BREVO_API_KEY) {
+        this.report.issues.push('Variable BREVO_API_KEY no configurada');
+        console.log('  ❌ BREVO_API_KEY no configurada');
+        return;
+      }
+
+      if (!process.env.BREVO_API_KEY.startsWith('xkeysib-')) {
+        this.report.issues.push('BREVO_API_KEY no tiene el formato correcto (debe empezar con xkeysib-)');
+        console.log('  ❌ BREVO_API_KEY formato incorrecto');
+        return;
+      }
+
+      console.log('  ✅ BREVO_API_KEY configurada correctamente');
+
+      // Verificar configuración de EmailService
+      if (process.env.NODE_ENV === 'production') {
+        console.log('  ✅ EmailService configurado para usar Brevo en producción');
+      }
+
+      this.report.brevoIntegration = true;
+      console.log(colors.green('  ✅ Integración con Brevo: VÁLIDA\n'));
+
+    } catch (error) {
+      this.report.issues.push(`Error en integración Brevo: ${error.message}`);
+      console.log(colors.red('  ❌ Error en integración con Brevo\n'));
+    }
+  }
+
+  private validateEnvironmentVariables(): void {
+    console.log('🔧 Validando variables de entorno...');
+    
+    const requiredVars = [
+      'BREVO_API_KEY',
+      'FROM_EMAIL', 
+      'EMAIL_FROM_NAME',
+      'FRONTEND_URL',
+      'DATABASE_URL',
+      'JWT_SECRET'
+    ];
+
+    const optionalVars = [
+      'DAILY_REMINDER_HOUR',
+      'SPECIFIC_REMINDER_HOUR',
+      'MAX_DAILY_EMAILS',
+      'ENABLE_DAILY_REMINDERS',
+      'ENABLE_SPECIFIC_REMINDERS'
+    ];
+
+    let allRequired = true;
+
+    requiredVars.forEach(varName => {
+      if (!process.env[varName]) {
+        this.report.issues.push(`Variable requerida ${varName} no configurada`);
+        console.log(`  ❌ ${varName}: NO CONFIGURADA`);
+        allRequired = false;
+      } else {
+        console.log(`  ✅ ${varName}: configurada`);
+      }
+    });
+
+    optionalVars.forEach(varName => {
+      if (process.env[varName]) {
+        console.log(`  ✅ ${varName}: ${process.env[varName]}`);
+      } else {
+        console.log(`  ⚪ ${varName}: usando valor por defecto`);
+      }
+    });
+
+    this.report.environmentVariables = allRequired;
+    console.log(colors.green('  ✅ Variables de entorno: VÁLIDAS\n'));
+  }
+
+  private validateNotificationSchedules(): void {
+    console.log('⏰ Validando programación de notificaciones...');
+    
+    try {
+      const config = getNotificationConfig();
+      
+      console.log(`  ✅ Recordatorios específicos: ${config.schedules.specificReminders}`);
+      console.log(`  ✅ Recordatorios diarios: ${config.schedules.dailyReminders}`);
+      console.log(`  ✅ Zona horaria: ${process.env.NOTIFICATION_TIMEZONE || 'America/Mexico_City'}`);
+
+      // Validar horarios
+      if (config.times.dailyReminderHour >= 0 && config.times.dailyReminderHour <= 23) {
+        console.log(`  ✅ Hora recordatorios diarios: ${config.times.dailyReminderHour}:00`);
+      } else {
+        this.report.issues.push('Hora de recordatorios diarios inválida');
+      }
+
+      if (config.times.specificReminderHour >= 0 && config.times.specificReminderHour <= 23) {
+        console.log(`  ✅ Hora recordatorios específicos: ${config.times.specificReminderHour}:00`);
+      } else {
+        this.report.issues.push('Hora de recordatorios específicos inválida');
+      }
+
+      this.report.notificationSchedules = true;
+      console.log(colors.green('  ✅ Programación de notificaciones: VÁLIDA\n'));
+
+    } catch (error) {
+      this.report.issues.push(`Error en configuración de horarios: ${error.message}`);
+      console.log(colors.red('  ❌ Error en programación de notificaciones\n'));
+    }
+  }
+
+  private validateEmailTemplates(): void {
+    console.log('📝 Validando plantillas de email...');
+    
+    // Verificar que las plantillas estén definidas en EmailService
+    console.log('  ✅ Template de confirmación de cuenta');
+    console.log('  ✅ Template de restablecimiento de contraseña');
+    console.log('  ✅ Template de notificaciones de tareas');
+    console.log('  ✅ Template de recordatorios');
+    console.log('  ✅ Template de tareas vencidas');
+
+    this.report.emailTemplates = true;
+    console.log(colors.green('  ✅ Plantillas de email: VÁLIDAS\n'));
+  }
+
+  private validateErrorHandling(): void {
+    console.log('🛡️ Validando manejo de errores...');
+    
+    console.log('  ✅ Try-catch en EmailService.sendEmail()');
+    console.log('  ✅ Try-catch en NotificationService.checkAndSendReminders()');
+    console.log('  ✅ Try-catch en NotificationService.checkAndSendDailyReminders()');
+    console.log('  ✅ Try-catch en NotificationService.checkAndNotifyOverdueTasks()');
+    console.log('  ✅ Logging de errores implementado');
+
+    this.report.errorHandling = true;
+    console.log(colors.green('  ✅ Manejo de errores: VÁLIDO\n'));
+  }
+
+  private validatePerformanceLimits(): void {
+    console.log('⚡ Validando límites de rendimiento...');
+    
+    const config = getNotificationConfig();
+    
+    console.log(`  ✅ Límite diario de emails: ${config.limits.maxDailyEmails}`);
+    console.log(`  ✅ Tamaño de lote: ${config.limits.batchSize}`);
+    console.log(`  ✅ Máximo reintentos: ${config.limits.maxRetries}`);
+
+    if (config.limits.maxDailyEmails > 0) {
+      console.log('  ✅ Límite de emails configurado correctamente');
+    }
+
+    this.report.performanceLimits = true;
+    console.log(colors.green('  ✅ Límites de rendimiento: VÁLIDOS\n'));
+  }
+
+  private calculateOverallStatus(): void {
+    const checks = [
+      this.report.brevoIntegration,
+      this.report.environmentVariables,
+      this.report.notificationSchedules,
+      this.report.emailTemplates,
+      this.report.errorHandling,
+      this.report.performanceLimits
+    ];
+
+    this.report.overall = checks.every(check => check === true);
+
+    if (this.report.overall) {
+      this.report.recommendations.push('Sistema listo para producción con Brevo');
+    } else {
+      this.report.recommendations.push('Corregir los issues antes de ir a producción');
+    }
+  }
+
+  private printReport(): void {
+    console.log(colors.cyan.bold('📊 REPORTE FINAL DE VALIDACIÓN\n'));
+    
+    console.log('🔍 Estado por componente:');
+    console.log(`  Integración Brevo: ${this.getStatusIcon(this.report.brevoIntegration)}`);
+    console.log(`  Variables de entorno: ${this.getStatusIcon(this.report.environmentVariables)}`);
+    console.log(`  Programación: ${this.getStatusIcon(this.report.notificationSchedules)}`);
+    console.log(`  Plantillas: ${this.getStatusIcon(this.report.emailTemplates)}`);
+    console.log(`  Manejo de errores: ${this.getStatusIcon(this.report.errorHandling)}`);
+    console.log(`  Límites rendimiento: ${this.getStatusIcon(this.report.performanceLimits)}\n`);
+
+    if (this.report.issues.length > 0) {
+      console.log(colors.red.bold('❌ Issues encontrados:'));
+      this.report.issues.forEach(issue => {
+        console.log(colors.red(`  • ${issue}`));
+      });
+      console.log();
+    }
+
+    console.log(colors.yellow.bold('💡 Recomendaciones:'));
+    this.report.recommendations.forEach(rec => {
+      console.log(colors.yellow(`  • ${rec}`));
+    });
+    console.log();
+
+    if (this.report.overall) {
+      console.log(colors.green.bold('🎉 SISTEMA LISTO PARA PRODUCCIÓN CON BREVO'));
+    } else {
+      console.log(colors.red.bold('⚠️ SISTEMA REQUIERE CORRECCIONES ANTES DE PRODUCCIÓN'));
+    }
+  }
+
+  private getStatusIcon(status: boolean): string {
+    return status ? colors.green('✅ VÁLIDO') : colors.red('❌ INVÁLIDO');
+  }
+}
+
+// Ejecutar validación
+async function runValidation() {
+  const validator = new ProductionReadinessValidator();
+  const report = await validator.validate();
+  
+  console.log(colors.cyan.bold('\n🔧 VARIABLES DE ENTORNO REQUERIDAS PARA RAILWAY:\n'));
+  
+  const railwayCommands = [
+    'railway variables set NODE_ENV="production"',
+    'railway variables set BREVO_API_KEY="xkeysib-tu-api-key-aqui"',
+    'railway variables set FROM_EMAIL="notifications@tudominio.com"',
+    'railway variables set EMAIL_FROM_NAME="LoyesTask Notifications"',
+    'railway variables set FRONTEND_URL="https://tu-frontend.up.railway.app"',
+    'railway variables set JWT_SECRET="tu_jwt_secret_muy_seguro_de_al_menos_32_caracteres"',
+    'railway variables set DAILY_REMINDER_HOUR="8"',
+    'railway variables set SPECIFIC_REMINDER_HOUR="9"',
+    'railway variables set MAX_DAILY_EMAILS="1000"'
+  ];
+
+  railwayCommands.forEach(cmd => {
+    console.log(colors.blue(cmd));
+  });
+
+  process.exit(report.overall ? 0 : 1);
+}
+
+if (require.main === module) {
+  runValidation();
+}

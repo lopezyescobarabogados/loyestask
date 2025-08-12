@@ -8,7 +8,13 @@ export const handleInputErrors = (
 ): void => {
   let errors = validationResult(req);
   if (!errors.isEmpty()) {
-    res.status(400).json({ errors: errors.array() });
+    // Unificar formato de error con el resto de la aplicación
+    const firstError = errors.array()[0];
+    const errorMessage = firstError.msg || 'Error de validación';
+    res.status(400).json({ 
+      error: errorMessage,
+      details: errors.array() // Mantener detalles para debugging
+    });
     return;
   }
   next();

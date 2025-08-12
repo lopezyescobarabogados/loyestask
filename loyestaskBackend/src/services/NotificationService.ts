@@ -19,8 +19,9 @@ interface TaskReminderData {
     dueDate: Date;
     status: string;
     notes: any[];
+    project?: any; // Hacer proyecto opcional ya que lo obtendremos separadamente
   };
-  project: {
+  project?: {
     _id: string;
     projectName: string;
     clientName?: string;
@@ -139,9 +140,9 @@ export class NotificationService {
           select: 'name description dueDate status notes project',
           populate: {
             path: 'project',
-            select: 'projectName clientName team',
+            select: 'projectName clientName team manager',
             populate: {
-              path: 'team',
+              path: 'team manager',
               select: 'name email',
             },
           },
@@ -371,9 +372,9 @@ export class NotificationService {
           select: 'name description dueDate status notes project',
           populate: {
             path: 'project',
-            select: 'projectName clientName team',
+            select: 'projectName clientName team manager',
             populate: {
-              path: 'team',
+              path: 'team manager',
               select: 'name email',
             },
           },
@@ -388,7 +389,42 @@ export class NotificationService {
         const shouldSendReminder = await this.shouldSendReminder(preference, today);
         
         if (shouldSendReminder) {
-          await this.sendTaskReminder(preference as any);
+          // Verificar que todos los datos requeridos estén presentes
+          if (!preference.task || !preference.user) {
+            console.log(`❌ Datos faltantes para recordatorio:`, {
+              task: !!preference.task,
+              user: !!preference.user,
+              preferenceId: preference._id
+            });
+            continue;
+          }
+
+          // Usar type casting para acceder a las propiedades populadas
+          const task = preference.task as any;
+          const user = preference.user as any;
+
+          // Construir el objeto TaskReminderData con la estructura correcta
+          const reminderData: TaskReminderData = {
+            user: {
+              _id: user._id.toString(),
+              name: user.name,
+              email: user.email
+            },
+            task: {
+              _id: task._id.toString(),
+              name: task.name,
+              description: task.description,
+              dueDate: task.dueDate,
+              status: task.status,
+              notes: task.notes || [],
+              project: task.project
+            },
+            preference: {
+              reminderDays: preference.reminderDays
+            }
+          };
+
+          await this.sendTaskReminder(reminderData);
           
           // Actualizar fecha de último envío
           preference.lastSentAt = new Date();
@@ -411,29 +447,47 @@ export class NotificationService {
     const task = preference.task;
     const user = preference.user;
 
-    if (!task || !user) return false;
+    if (!task || !user) {
+      console.log('❌ Datos faltantes para recordatorio:', { task: !!task, user: !!user, preferenceId: preference._id });
+      return false;
+    }
 
     // No enviar si la tarea ya está completada
-    if (task.status === 'completed') return false;
+    if (task.status === 'completed') {
+      console.log(`⏭️ Tarea "${task.name}" ya completada, omitiendo recordatorio específico`);
+      return false;
+    }
 
     // No enviar si no hay fecha límite
-    if (!task.dueDate) return false;
+    if (!task.dueDate) {
+      console.log(`📅 Tarea "${task.name}" sin fecha límite, omitiendo recordatorio específico`);
+      return false;
+    }
 
     // Calcular días hasta la fecha límite
     const dueDate = new Date(task.dueDate);
     const timeDiff = dueDate.getTime() - today.getTime();
     const daysUntilDue = Math.ceil(timeDiff / (1000 * 3600 * 24));
 
+    console.log(`🔍 Evaluando tarea "${task.name}": vence en ${daysUntilDue} días, configurado para recordar en ${preference.reminderDays} días`);
+
     // Verificar si coincide con los días de anticipación configurados
-    if (daysUntilDue !== preference.reminderDays) return false;
+    if (daysUntilDue !== preference.reminderDays) {
+      console.log(`📊 No coinciden los días: ${daysUntilDue} !== ${preference.reminderDays}, omitiendo recordatorio`);
+      return false;
+    }
 
     // No enviar si ya se envió hoy
     if (preference.lastSentAt) {
       const lastSentDate = new Date(preference.lastSentAt);
       const isToday = lastSentDate.toDateString() === today.toDateString();
-      if (isToday) return false;
+      if (isToday) {
+        console.log(`🔄 Ya se envió recordatorio hoy para tarea "${task.name}", omitiendo`);
+        return false;
+      }
     }
 
+    console.log(`✅ Enviando recordatorio para tarea "${task.name}" (${preference.reminderDays} días antes del vencimiento)`);
     return true;
   }
 
@@ -442,7 +496,7 @@ export class NotificationService {
    */
   private async sendTaskReminder(data: TaskReminderData): Promise<void> {
     try {
-      const { user, task, project, preference } = data;
+      const { user, task, preference } = data;
 
       // Validar que todos los datos requeridos estén presentes
       if (!user || !user._id || !user.email) {
@@ -453,12 +507,25 @@ export class NotificationService {
         throw new Error('Datos de tarea incompletos o faltantes');
       }
 
+      if (!preference || preference.reminderDays === undefined || preference.reminderDays === null) {
+        throw new Error('Datos de preferencia incompletos o faltantes');
+      }
+
+      // Obtener proyecto directamente de la tarea si no está populado
+      let project = task.project;
+      if (typeof project === 'string' || !project._id) {
+        const Task = require('../models/Task').default;
+        const taskWithProject = await Task.findById(task._id).populate('project', 'projectName clientName team manager');
+        project = taskWithProject?.project;
+      }
+
       if (!project || !project._id) {
         throw new Error('Datos de proyecto incompletos o faltantes');
       }
 
       // Obtener colaboradores del proyecto
-      const projectData = await Project.findById(project._id).populate('team', 'name email');
+      const Project = require('../models/Project').default;
+      const projectData = await Project.findById(project._id).populate('team manager', 'name email');
       const collaborators = projectData?.team || [];
 
       const dueDate = new Date(task.dueDate);
@@ -510,7 +577,7 @@ export class NotificationService {
                 <p><strong>Proyecto:</strong> ${project.projectName}${project.clientName ? ` (${project.clientName})` : ''}</p>
                 <p><strong>Fecha límite:</strong> ${formattedDueDate}</p>
                 <p><strong>Estado actual:</strong> <span class="status status-${task.status}">${statusLabels[task.status] || task.status}</span></p>
-                <p><strong>Días restantes:</strong> ${preference.reminderDays} días</p>
+                <p><strong>Días para recordatorio:</strong> ${preference.reminderDays} días</p>
                 
                 ${task.notes && task.notes.length > 0 ? `
                   <h3>📝 Notas recientes:</h3>

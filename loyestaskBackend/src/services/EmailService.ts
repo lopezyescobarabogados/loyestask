@@ -50,6 +50,16 @@ export class EmailService {
     // Método principal para enviar correos
     public static async sendEmail(emailData: IEmailData): Promise<void> {
         try {
+            // Modo debug - simular envío sin enviar realmente
+            if (process.env.NOTIFICATION_DEBUG_MODE === 'true') {
+                console.log('🧪 [DEBUG MODE] Simulando envío de correo:');
+                console.log(`   📧 Para: ${emailData.to}`);
+                console.log(`   📝 Asunto: ${emailData.subject}`);
+                console.log(`   👤 De: ${emailData.from?.name || process.env.EMAIL_FROM_NAME} <${emailData.from?.email || process.env.FROM_EMAIL}>`);
+                console.log('   ✅ Email simulado enviado exitosamente\n');
+                return;
+            }
+
             if (process.env.NODE_ENV === 'production') {
                 await this.sendWithBrevo(emailData);
             } else {

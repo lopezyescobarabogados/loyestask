@@ -9,13 +9,20 @@ const projectPriority = {
   LOW: "low", 
 } as const;
 
+const projectStatus = {
+  ACTIVE: "active",
+  COMPLETED: "completed",
+} as const;
+
 export type projectPriority = (typeof projectPriority)[keyof typeof projectPriority];
+export type projectStatus = (typeof projectStatus)[keyof typeof projectStatus];
 
 export interface IProject extends Document {
   projectName: string;
   clientName: string;
   description: string;
   priority: projectPriority;
+  status: projectStatus;
   tasks: PopulatedDoc<ITask & Document>[];
   manager: PopulatedDoc<IUser & Document>;
   team: PopulatedDoc<IUser & Document>[];
@@ -42,6 +49,11 @@ const ProjectSchema: Schema = new Schema(
       type: String,
       enum: Object.values(projectPriority),
       default: projectPriority.LOW,
+    },
+    status: {
+      type: String,
+      enum: Object.values(projectStatus),
+      default: projectStatus.ACTIVE,
     },
     tasks: [
       {

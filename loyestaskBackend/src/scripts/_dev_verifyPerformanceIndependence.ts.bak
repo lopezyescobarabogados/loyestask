@@ -1,0 +1,473 @@
+/**
+ * ANÁLISIS DE INTEGRIDAD DEL SISTEMA DE EVALUACIÓN INDIVIDUAL
+ * 
+ * Este script verifica que las evaluaciones de desempeño sean completamente
+ * independientes entre colaboradores y que los retrasos de un usuario no
+ * afecten a otros miembros del proyecto.
+ */
+
+import dotenv from 'dotenv';
+import colors from 'colors';
+import mongoose from 'mongoose';
+import Task from '../models/Task';
+import UserPerformance from '../models/UserPerformance';
+import UserEvaluation from '../models/UserEvaluation';
+import User from '../models/User';
+import Project from '../models/Project';
+
+dotenv.config();
+
+interface IndependenceAnalysis {
+  taskAssignmentIntegrity: boolean;
+  performanceTrackingIsolation: boolean;
+  evaluationCalculationIndependence: boolean;
+  crossUserImpactDetection: boolean;
+  dataConsistencyCheck: boolean;
+  overall: boolean;
+  issues: string[];
+  recommendations: string[];
+  report: {
+    totalTasks: number;
+    tasksWithMultipleCollaborators: number;
+    performanceRecordsAnalyzed: number;
+    evaluationsAnalyzed: number;
+    isolationViolations: number;
+  };
+}
+
+class PerformanceIndependenceValidator {
+  private analysis: IndependenceAnalysis = {
+    taskAssignmentIntegrity: false,
+    performanceTrackingIsolation: false,
+    evaluationCalculationIndependence: false,
+    crossUserImpactDetection: false,
+    dataConsistencyCheck: false,
+    overall: false,
+    issues: [],
+    recommendations: [],
+    report: {
+      totalTasks: 0,
+      tasksWithMultipleCollaborators: 0,
+      performanceRecordsAnalyzed: 0,
+      evaluationsAnalyzed: 0,
+      isolationViolations: 0
+    }
+  };
+
+  async runAnalysis(): Promise<IndependenceAnalysis> {
+    console.log(colors.magenta.bold('🔍 ANÁLISIS DE INTEGRIDAD: EVALUACIONES INDIVIDUALES\n'));
+
+    try {
+      // Conectar a MongoDB
+      await mongoose.connect(process.env.DATABASE_URL || '');
+      console.log('✅ Conectado a MongoDB\n');
+
+      await this.analyzeTaskAssignmentIntegrity();
+      await this.analyzePerformanceTrackingIsolation();
+      await this.analyzeEvaluationCalculationIndependence();
+      await this.detectCrossUserImpact();
+      await this.checkDataConsistency();
+      
+      this.calculateOverallScore();
+      this.printDetailedReport();
+      
+      await mongoose.disconnect();
+      return this.analysis;
+
+    } catch (error) {
+      console.error('❌ Error en análisis:', error);
+      this.analysis.issues.push(`Error crítico: ${error.message}`);
+      return this.analysis;
+    }
+  }
+
+  /**
+   * 1. Verificar integridad de asignación de tareas
+   */
+  private async analyzeTaskAssignmentIntegrity(): Promise<void> {
+    console.log('📋 1. Analizando integridad de asignación de tareas...');
+
+    try {
+      const tasks = await Task.find({}).populate('collaborators', 'name email');
+      this.analysis.report.totalTasks = tasks.length;
+
+      let hasIntegrity = true;
+      let multiCollaboratorTasks = 0;
+
+      for (const task of tasks) {
+        if (task.collaborators && task.collaborators.length > 1) {
+          multiCollaboratorTasks++;
+        }
+
+        // Verificar que cada colaborador esté registrado individualmente
+        if (task.collaborators && task.collaborators.length > 0) {
+          for (const collaborator of task.collaborators) {
+            const collaboratorId = typeof collaborator === 'string' ? collaborator : (collaborator as any)._id;
+            const collaboratorName = typeof collaborator === 'string' ? 'Usuario' : (collaborator as any).name || 'Usuario';
+            
+            const performanceRecords = await UserPerformance.find({
+              user: collaboratorId,
+              task: task._id
+            });
+
+            if (performanceRecords.length > 1) {
+              this.analysis.issues.push(
+                `Tarea ${task.name}: Colaborador ${collaboratorName} tiene múltiples registros de performance`
+              );
+              hasIntegrity = false;
+            }
+          }
+        }
+      }
+
+      this.analysis.report.tasksWithMultipleCollaborators = multiCollaboratorTasks;
+      this.analysis.taskAssignmentIntegrity = hasIntegrity;
+
+      console.log(`  ✅ Tareas analizadas: ${tasks.length}`);
+      console.log(`  📊 Tareas con múltiples colaboradores: ${multiCollaboratorTasks}`);
+      console.log(`  ${hasIntegrity ? '✅' : '❌'} Integridad de asignación: ${hasIntegrity ? 'VÁLIDA' : 'VIOLADA'}\n`);
+
+    } catch (error) {
+      this.analysis.issues.push(`Error en análisis de asignación: ${error.message}`);
+      console.log('  ❌ Error en análisis de asignación de tareas\n');
+    }
+  }
+
+  /**
+   * 2. Verificar aislamiento en tracking de performance
+   */
+  private async analyzePerformanceTrackingIsolation(): Promise<void> {
+    console.log('📊 2. Analizando aislamiento en tracking de performance...');
+
+    try {
+      const performanceRecords = await UserPerformance.find({})
+        .populate('user', 'name email')
+        .populate('task', 'name')
+        .populate('project', 'projectName');
+
+      this.analysis.report.performanceRecordsAnalyzed = performanceRecords.length;
+
+      let hasIsolation = true;
+      const userTaskCombinations = new Map<string, Set<string>>();
+
+      for (const record of performanceRecords) {
+        const userKey = record.user._id.toString();
+        const taskKey = record.task._id.toString();
+        
+        if (!userTaskCombinations.has(userKey)) {
+          userTaskCombinations.set(userKey, new Set());
+        }
+
+        const userTasks = userTaskCombinations.get(userKey)!;
+        if (userTasks.has(taskKey)) {
+          const userName = (record.user as any)?.name || 'Usuario desconocido';
+          const taskName = (record.task as any)?.name || 'Tarea desconocida';
+          this.analysis.issues.push(
+            `Performance duplicada: Usuario ${userName} tiene múltiples registros para tarea ${taskName}`
+          );
+          hasIsolation = false;
+          this.analysis.report.isolationViolations++;
+        } else {
+          userTasks.add(taskKey);
+        }
+
+        // Verificar que los datos de performance sean específicos del usuario
+        if (!record.user || !record.task || !record.project) {
+          this.analysis.issues.push(
+            `Registro de performance incompleto: falta referencia a usuario, tarea o proyecto`
+          );
+          hasIsolation = false;
+        }
+
+        // Verificar que el cálculo de isOnTime sea independiente
+        if (record.isCompleted && record.completionTime != null) {
+          // Validar que el cálculo no dependa de otros usuarios
+          const statusChanges = record.statusChanges;
+          const hasValidTimeline = statusChanges.length > 0 && 
+            statusChanges.every(change => change.timestamp && change.workingDaysFromStart >= 0);
+          
+          if (!hasValidTimeline) {
+            const userName = (record.user as any)?.name || 'Usuario desconocido';
+            const taskName = (record.task as any)?.name || 'Tarea desconocida';
+            this.analysis.issues.push(
+              `Timeline de performance inválida para usuario ${userName} en tarea ${taskName}`
+            );
+            hasIsolation = false;
+          }
+        }
+      }
+
+      this.analysis.performanceTrackingIsolation = hasIsolation;
+
+      console.log(`  ✅ Registros de performance analizados: ${performanceRecords.length}`);
+      console.log(`  📈 Combinaciones usuario-tarea únicas: ${Array.from(userTaskCombinations.values()).reduce((sum, set) => sum + set.size, 0)}`);
+      console.log(`  ⚠️ Violaciones de aislamiento detectadas: ${this.analysis.report.isolationViolations}`);
+      console.log(`  ${hasIsolation ? '✅' : '❌'} Aislamiento de tracking: ${hasIsolation ? 'VÁLIDO' : 'VIOLADO'}\n`);
+
+    } catch (error) {
+      this.analysis.issues.push(`Error en análisis de aislamiento: ${error.message}`);
+      console.log('  ❌ Error en análisis de aislamiento de performance\n');
+    }
+  }
+
+  /**
+   * 3. Verificar independencia en cálculo de evaluaciones
+   */
+  private async analyzeEvaluationCalculationIndependence(): Promise<void> {
+    console.log('🎯 3. Analizando independencia en cálculo de evaluaciones...');
+
+    try {
+      const evaluations = await UserEvaluation.find({})
+        .populate('user', 'name email')
+        .populate('evaluatedBy', 'name');
+
+      this.analysis.report.evaluationsAnalyzed = evaluations.length;
+
+      let hasIndependence = true;
+
+      for (const evaluation of evaluations) {
+        // Verificar que las métricas sean calculadas solo con datos del usuario
+        const userPerformance = await UserPerformance.find({
+          user: evaluation.user._id,
+          createdAt: {
+            $gte: evaluation.period.startDate,
+            $lte: evaluation.period.endDate
+          }
+        });
+
+        // Verificar que no haya referencias cruzadas a otros usuarios
+        const relatedUsers = await UserPerformance.find({
+          project: { $in: userPerformance.map(p => p.project) },
+          user: { $ne: evaluation.user._id }
+        });
+
+        // Las evaluaciones deben basarse SOLO en el performance del usuario específico
+        if (evaluation.metrics) {
+          const { taskCompletionRate, averageCompletionTime, productivity } = evaluation.metrics;
+          
+          const completedTasks = userPerformance.filter(p => p.isCompleted);
+          const expectedCompletionRate = userPerformance.length > 0 
+            ? (completedTasks.length / userPerformance.length) * 100 
+            : 0;
+
+          // Verificar que la tasa de completion sea consistente con los datos individuales
+          const rateDeviation = Math.abs(taskCompletionRate - expectedCompletionRate);
+          if (rateDeviation > 5) { // Tolerancia del 5%
+            const userName = (evaluation.user as any)?.name || 'Usuario desconocido';
+            this.analysis.issues.push(
+              `Evaluación de ${userName}: Tasa de completion inconsistente (esperada: ${expectedCompletionRate.toFixed(2)}%, registrada: ${taskCompletionRate}%)`
+            );
+            hasIndependence = false;
+          }
+        }
+      }
+
+      this.analysis.evaluationCalculationIndependence = hasIndependence;
+
+      console.log(`  ✅ Evaluaciones analizadas: ${evaluations.length}`);
+      console.log(`  ${hasIndependence ? '✅' : '❌'} Independencia de cálculo: ${hasIndependence ? 'VÁLIDA' : 'VIOLADA'}\n`);
+
+    } catch (error) {
+      this.analysis.issues.push(`Error en análisis de independencia: ${error.message}`);
+      console.log('  ❌ Error en análisis de independencia de evaluaciones\n');
+    }
+  }
+
+  /**
+   * 4. Detectar impacto cruzado entre usuarios
+   */
+  private async detectCrossUserImpact(): Promise<void> {
+    console.log('🔗 4. Detectando impacto cruzado entre usuarios...');
+
+    try {
+      let noCrossImpact = true;
+
+      // Verificar que los retrasos de un usuario no afecten a otros
+      const projects = await Project.find({}).populate('team manager');
+
+      for (const project of projects) {
+        const projectUsers = [
+          ...(project.team || []),
+          project.manager
+        ].filter(Boolean).map(user => user._id.toString());
+
+        const allUserPerformances = await UserPerformance.find({
+          project: project._id,
+          user: { $in: projectUsers }
+        }).populate('user', 'name');
+
+        // Agrupar por usuario
+        const userPerformanceMap = new Map<string, any[]>();
+        allUserPerformances.forEach(perf => {
+          const userId = perf.user._id.toString();
+          if (!userPerformanceMap.has(userId)) {
+            userPerformanceMap.set(userId, []);
+          }
+          userPerformanceMap.get(userId)!.push(perf);
+        });
+
+        // Verificar que el performance de cada usuario sea independiente
+        for (const [userId, performances] of userPerformanceMap) {
+          const otherUsersPerformances = Array.from(userPerformanceMap.entries())
+            .filter(([otherUserId]) => otherUserId !== userId)
+            .flatMap(([, perfs]) => perfs);
+
+          // Verificar que no haya cálculos que dependan de otros usuarios
+          for (const perf of performances) {
+            if (perf.isOnTime === null && perf.isCompleted) {
+              const userName = (perf.user as any)?.name || 'Usuario desconocido';
+              this.analysis.issues.push(
+                `Usuario ${userName}: Performance completada pero isOnTime no calculado independientemente`
+              );
+              noCrossImpact = false;
+            }
+          }
+        }
+      }
+
+      this.analysis.crossUserImpactDetection = noCrossImpact;
+
+      console.log(`  ${noCrossImpact ? '✅' : '❌'} Sin impacto cruzado: ${noCrossImpact ? 'CONFIRMADO' : 'DETECTADO'}\n`);
+
+    } catch (error) {
+      this.analysis.issues.push(`Error en detección de impacto cruzado: ${error.message}`);
+      console.log('  ❌ Error en detección de impacto cruzado\n');
+    }
+  }
+
+  /**
+   * 5. Verificar consistencia de datos
+   */
+  private async checkDataConsistency(): Promise<void> {
+    console.log('🔄 5. Verificando consistencia de datos...');
+
+    try {
+      let isConsistent = true;
+
+      // Verificar que cada tarea completada tenga registros de performance correspondientes
+      const completedTasks = await Task.find({ status: 'completed' }).populate('collaborators');
+
+      for (const task of completedTasks) {
+        if (task.collaborators && task.collaborators.length > 0) {
+          for (const collaborator of task.collaborators) {
+            const collaboratorId = typeof collaborator === 'string' ? collaborator : (collaborator as any)._id;
+            const collaboratorName = typeof collaborator === 'string' ? 'Usuario' : (collaborator as any).name || 'Usuario';
+            
+            const performanceRecord = await UserPerformance.findOne({
+              user: collaboratorId,
+              task: task._id,
+              isCompleted: true
+            });
+
+            if (!performanceRecord) {
+              this.analysis.issues.push(
+                `Tarea completada "${task.name}" sin registro de performance para colaborador ${collaboratorName}`
+              );
+              isConsistent = false;
+            }
+          }
+        }
+      }
+
+      // Verificar que no haya registros de performance huérfanos
+      const allPerformanceRecords = await UserPerformance.find({});
+      for (const record of allPerformanceRecords) {
+        const taskExists = await Task.findById(record.task);
+        const userExists = await User.findById(record.user);
+        
+        if (!taskExists || !userExists) {
+          this.analysis.issues.push(
+            `Registro de performance huérfano: tarea o usuario no existe`
+          );
+          isConsistent = false;
+        }
+      }
+
+      this.analysis.dataConsistencyCheck = isConsistent;
+
+      console.log(`  ${isConsistent ? '✅' : '❌'} Consistencia de datos: ${isConsistent ? 'VÁLIDA' : 'VIOLADA'}\n`);
+
+    } catch (error) {
+      this.analysis.issues.push(`Error en verificación de consistencia: ${error.message}`);
+      console.log('  ❌ Error en verificación de consistencia\n');
+    }
+  }
+
+  private calculateOverallScore(): void {
+    const checks = [
+      this.analysis.taskAssignmentIntegrity,
+      this.analysis.performanceTrackingIsolation,
+      this.analysis.evaluationCalculationIndependence,
+      this.analysis.crossUserImpactDetection,
+      this.analysis.dataConsistencyCheck
+    ];
+
+    this.analysis.overall = checks.every(check => check === true);
+
+    if (this.analysis.overall) {
+      this.analysis.recommendations.push('✅ Sistema de evaluación completamente independiente');
+      this.analysis.recommendations.push('✅ Los retrasos de un colaborador NO afectan a otros');
+      this.analysis.recommendations.push('✅ Las evaluaciones son justas e individuales');
+    } else {
+      this.analysis.recommendations.push('⚠️ Se requieren correcciones para garantizar independencia');
+      this.analysis.recommendations.push('🔧 Revisar los issues reportados');
+    }
+  }
+
+  private printDetailedReport(): void {
+    console.log(colors.cyan.bold('📊 REPORTE DETALLADO DE INTEGRIDAD\n'));
+
+    console.log('🔍 Componentes analizados:');
+    console.log(`  Asignación de tareas: ${this.getStatusIcon(this.analysis.taskAssignmentIntegrity)}`);
+    console.log(`  Tracking de performance: ${this.getStatusIcon(this.analysis.performanceTrackingIsolation)}`);
+    console.log(`  Cálculo de evaluaciones: ${this.getStatusIcon(this.analysis.evaluationCalculationIndependence)}`);
+    console.log(`  Impacto cruzado: ${this.getStatusIcon(this.analysis.crossUserImpactDetection)}`);
+    console.log(`  Consistencia de datos: ${this.getStatusIcon(this.analysis.dataConsistencyCheck)}\n`);
+
+    console.log('📈 Estadísticas del análisis:');
+    console.log(`  📋 Total de tareas: ${this.analysis.report.totalTasks}`);
+    console.log(`  👥 Tareas con múltiples colaboradores: ${this.analysis.report.tasksWithMultipleCollaborators}`);
+    console.log(`  📊 Registros de performance: ${this.analysis.report.performanceRecordsAnalyzed}`);
+    console.log(`  🎯 Evaluaciones analizadas: ${this.analysis.report.evaluationsAnalyzed}`);
+    console.log(`  ⚠️ Violaciones detectadas: ${this.analysis.report.isolationViolations}\n`);
+
+    if (this.analysis.issues.length > 0) {
+      console.log(colors.red.bold('❌ Issues detectados:'));
+      this.analysis.issues.forEach(issue => {
+        console.log(colors.red(`  • ${issue}`));
+      });
+      console.log();
+    }
+
+    console.log(colors.yellow.bold('💡 Recomendaciones:'));
+    this.analysis.recommendations.forEach(rec => {
+      console.log(colors.yellow(`  • ${rec}`));
+    });
+    console.log();
+
+    if (this.analysis.overall) {
+      console.log(colors.green.bold('🎉 SISTEMA DE EVALUACIÓN: COMPLETAMENTE INDEPENDIENTE'));
+      console.log(colors.green.bold('✅ LAS EVALUACIONES SON JUSTAS E INDIVIDUALES'));
+    } else {
+      console.log(colors.red.bold('⚠️ SISTEMA REQUIERE CORRECCIONES PARA GARANTIZAR INDEPENDENCIA'));
+    }
+  }
+
+  private getStatusIcon(status: boolean): string {
+    return status ? colors.green('✅ VÁLIDO') : colors.red('❌ INVÁLIDO');
+  }
+}
+
+// Ejecutar análisis
+async function runIndependenceAnalysis() {
+  const validator = new PerformanceIndependenceValidator();
+  const analysis = await validator.runAnalysis();
+  
+  process.exit(analysis.overall ? 0 : 1);
+}
+
+if (require.main === module) {
+  runIndependenceAnalysis();
+}
+
+export { PerformanceIndependenceValidator };

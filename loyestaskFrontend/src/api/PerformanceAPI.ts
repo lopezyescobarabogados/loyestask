@@ -5,7 +5,8 @@ import type {
   UserEvaluation,
   PerformancePrediction,
   UserDashboard,
-  CreateEvaluationForm
+  CreateEvaluationForm,
+  AutomatedEvaluation
 } from '@/types/index';
 
 /**
@@ -82,6 +83,21 @@ export async function getUserEvaluations(userId: string): Promise<UserEvaluation
       throw new Error(error.response.data.error);
     }
     throw new Error('Error al obtener evaluaciones');
+  }
+}
+
+/**
+ * Obtener evaluación automatizada objetiva (nuevo endpoint)
+ */
+export async function getAutomatedEvaluation(userId: string, period: number = 30): Promise<AutomatedEvaluation> {
+  try {
+    const { data } = await api.get<AutomatedEvaluation>(`/performance/users/${userId}/automated-evaluation?period=${period}`);
+    return data;
+  } catch (error) {
+    if (isAxiosError(error) && error.response) {
+      throw new Error(error.response.data.error);
+    }
+    throw new Error('Error al obtener evaluación automatizada');
   }
 }
 

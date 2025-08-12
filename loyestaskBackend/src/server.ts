@@ -12,6 +12,7 @@ import userRoutes from "./routes/userRoutes";
 import performanceRoutes from "./routes/performanceRoutes";
 import notificationRoutes from "./routes/notificationRoutes";
 import configRoutes from "./routes/configRoutes";
+import pdfRoutes from "./routes/pdfRoutes";
 import { ensureUploadsDirectory } from "./services/FileService";
 
 // Configurar variables de entorno
@@ -75,7 +76,8 @@ app.get('/', (req, res) => {
             users: '/api/users',
             performance: '/api/performance',
             notifications: '/api/notifications',
-            config: '/api/config'
+            config: '/api/config',
+            pdf: '/api/pdf'
         }
     });
 });
@@ -87,6 +89,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/performance", performanceRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/config", configRoutes);
+app.use("/api/pdf", pdfRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {

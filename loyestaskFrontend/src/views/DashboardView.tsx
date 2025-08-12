@@ -1,6 +1,6 @@
-import { Fragment } from 'react'
+import { Fragment, useState } from 'react'
 import { Menu, MenuButton, MenuItem, MenuItems, Transition } from '@headlessui/react'
-import { EllipsisVerticalIcon } from '@heroicons/react/20/solid'
+import { EllipsisVerticalIcon, FunnelIcon } from '@heroicons/react/20/solid'
 import { Link, useLocation, useNavigate } from "react-router-dom"
 import { useQuery } from '@tanstack/react-query'
 import { getProject } from "@/api/ProjectAPI"
@@ -11,6 +11,10 @@ export default function DashboardView() {
   const location = useLocation()
   const navigate = useNavigate()
   const { data: user, isLoading: authLoading } = useAuth()
+  
+  // Estado para filtros
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'completed'>('all')
+  
   const { data, isLoading } = useQuery({
     queryKey: ['projects'],
     queryFn: getProject
@@ -30,22 +34,55 @@ export default function DashboardView() {
     }
   };
 
+  // Filtrar proyectos por estado
+  const filteredProjects = data?.filter(project => {
+    if (statusFilter === 'all') return true
+    return project.status === statusFilter
+  }) || []
+
   if (isLoading && authLoading) return 'Cargando...'
 
   if (data && user) return (
     <>
       <h1 className="text-5xl font-black">Mis Proyectos</h1>
       <p className="text-2xl font-light text-slate-500 mt-5">Maneja y administra tus Proyectos</p>
-      <nav className="my-5">
+      
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 my-5">
         <Link
-          className="bg-slate-500 hover:bg-slate-300 px-10 py-3 text-white text-xl
-          font-bold cursor-pointer transition-colors"
+          className="bg-slate-500 hover:bg-slate-300 px-10 py-3 text-white text-xl font-bold cursor-pointer transition-colors"
           to='/projects/create'
-        >Nuevo Proyecto</Link>
-      </nav>
-      {data.length ? (
+        >
+          Nuevo Proyecto
+        </Link>
+        
+        {/* Filtros de estado */}
+        <div className="flex items-center gap-2">
+          <FunnelIcon className="h-5 w-5 text-slate-400" />
+          <span className="text-sm text-slate-600">Filtrar por estado:</span>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as 'all' | 'active' | 'completed')}
+            className="text-sm border border-slate-300 rounded-lg px-3 py-1 focus:outline-none focus:ring-2 focus:ring-slate-500"
+          >
+            <option value="all">Todos</option>
+            <option value="active">Activos</option>
+            <option value="completed">Completados</option>
+          </select>
+        </div>
+      </div>
+      
+      {filteredProjects.length ? (
+        <div className="mb-4">
+          <p className="text-sm text-slate-600">
+            Mostrando {filteredProjects.length} de {data.length} proyectos
+            {statusFilter !== 'all' && ` (${statusFilter === 'active' ? 'activos' : 'completados'})`}
+          </p>
+        </div>
+      ) : null}
+      
+      {filteredProjects.length ? (
         <ul role="list" className="divide-y divide-slate-100 border border-slate-100 mt-10 shadow-lg">
-          {data.map((project) => (
+          {filteredProjects.map((project) => (
             <li
               key={project._id}
               className={`flex justify-between gap-x-6 px-5 py-10 ${getPriorityClasses(project.priority)}`}
@@ -70,6 +107,11 @@ export default function DashboardView() {
                       }`}
                     >
                       {project.priority}
+                    </span>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
+                      ${project.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}
+                    >
+                      {project.status === 'completed' ? 'Completado' : 'Activo'}
                     </span>
                   </div>
                   <p className="text-sm text-slate-500">
@@ -130,12 +172,24 @@ export default function DashboardView() {
           ))}
         </ul>
       ) : (
-        <p className="text-center py-20">No hay Proyectos aun {''}
-          <Link
-            to='/projects/create'
-            className="text-slate-500 font-bold"
-          >Crear Proyecto</Link>
-        </p>
+        <div className="text-center py-20">
+          {statusFilter === 'all' ? (
+            <p>No hay Proyectos aun {' '}
+              <Link to='/projects/create' className="text-slate-500 font-bold">
+                Crear Proyecto
+              </Link>
+            </p>
+          ) : (
+            <p>No hay proyectos {statusFilter === 'active' ? 'activos' : 'completados'} {' '}
+              <button 
+                onClick={() => setStatusFilter('all')}
+                className="text-slate-500 font-bold hover:underline"
+              >
+                Ver todos los proyectos
+              </button>
+            </p>
+          )}
+        </div>
       )}
       <DeleteProjectModal />
     </>

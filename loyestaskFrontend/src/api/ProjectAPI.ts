@@ -98,3 +98,19 @@ export async function updateProjectPriority({formData, projectId}: ProjectPriori
         }
     }
 } 
+
+type ProjectStatusAPIType = {
+    formData: { status: string }
+    projectId: Project['_id']
+}
+
+export async function updateProjectStatus({formData, projectId}: ProjectStatusAPIType) {
+    try {
+        const { data } = await api.post<string>(`/projects/${projectId}/status`, formData)
+        return data
+    } catch (error) {
+        if(isAxiosError(error) && error.response){
+             throw new Error(error.response.data.error)
+        }
+    }
+} 

@@ -1,4 +1,6 @@
 import { z } from "zod"
+// Asegura que las declaraciones globales estén incluidas en el build
+//import './global'
 
 /** Auth & Users */
 const authSchema = z.object({
@@ -82,6 +84,7 @@ export const taskSchema = z.object({
     dueDate: z.string(),
     createdAt: z.string(),
     updatedAt: z.string(),
+    collaborators: z.array(userSchema).optional(),
 })
 
 export const taskProjectSchema = taskSchema.pick({
@@ -93,6 +96,7 @@ export const taskProjectSchema = taskSchema.pick({
 })
 
 export type Task = z.infer<typeof taskSchema>
+export type Collaborator = z.infer<typeof userSchema>
 export type TaskFormData = Pick<Task, 'name' | 'description' | 'dueDate'>
 export type TaskProject = z.infer<typeof taskProjectSchema>
 
@@ -104,9 +108,10 @@ export const projectSchema = z.object({
     clientName: z.string(),
     description: z.string(),
     priority: z.string(),
-    manager: z.string(userSchema.pick({_id: true})),
+    status: z.string(),
+    manager: z.union([z.string(), userSchema.pick({_id: true, name: true, email: true})]), // Puede ser ID o objeto poblado
     tasks: z.array(taskProjectSchema),
-    team: z.array(z.string(userSchema.pick({_id: true})))
+    team: z.array(z.union([z.string(), userSchema.pick({_id: true, name: true, email: true})]))
 })
 
 export const dashboardProjectSchema = z.array(
@@ -116,6 +121,7 @@ export const dashboardProjectSchema = z.array(
         clientName: true,
         description: true,
         priority: true,
+        status: true,
         manager: true,
 
     })
@@ -312,6 +318,50 @@ export type CreateEvaluationForm = {
     comments: string;
     recommendations?: string;
 }
+
+/** Automated Performance Evaluation */
+export const automatedMetricsSchema = z.object({
+    tasksAssigned: z.number(),
+    tasksCompleted: z.number(),
+    completionRate: z.number(),
+    averageCompletionDays: z.number(),
+    onTimeDeliveries: z.number(),
+    onTimePercentage: z.number(),
+    delayedDeliveries: z.number(),
+    averageDelayDays: z.number(),
+    maxDelayDays: z.number(),
+    tasksCompletedThisMonth: z.number(),
+    productivityTrend: z.enum(['improving', 'stable', 'declining']),
+    earlyDeliveries: z.number(),
+    qualityScore: z.number(),
+});
+
+export const automatedEvaluationResultSchema = z.object({
+    score: z.number(),
+    rating: z.enum(['excellent', 'good', 'average', 'needs_improvement', 'poor']),
+    feedback: z.array(z.string()),
+});
+
+export const automatedEvaluationSchema = z.object({
+    user: userSchema.pick({
+        _id: true,
+        name: true,
+        email: true,
+    }),
+    evaluationPeriod: z.object({
+        days: z.number(),
+        startDate: z.string(),
+        endDate: z.string(),
+    }),
+    automatedMetrics: automatedMetricsSchema,
+    evaluation: automatedEvaluationResultSchema,
+    monthlyReports: z.array(z.any()).optional(),
+    isAutomated: z.boolean(),
+});
+
+export type AutomatedMetrics = z.infer<typeof automatedMetricsSchema>
+export type AutomatedEvaluationResult = z.infer<typeof automatedEvaluationResultSchema>
+export type AutomatedEvaluation = z.infer<typeof automatedEvaluationSchema>
 
 /** Notifications */
 export const notificationPreferenceSchema = z.object({

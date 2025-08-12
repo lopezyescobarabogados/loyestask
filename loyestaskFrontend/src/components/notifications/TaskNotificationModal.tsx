@@ -1,5 +1,5 @@
 import { Fragment, useState, useEffect } from 'react';
-import { Dialog, Transition, Switch } from '@headlessui/react';
+import { Dialog, DialogPanel, DialogTitle, Transition, TransitionChild, Switch } from '@headlessui/react';
 import { XMarkIcon, BellIcon, PaperAirplaneIcon } from '@heroicons/react/24/outline';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-hot-toast';
@@ -134,7 +134,7 @@ export default function TaskNotificationModal({ task, show, onClose }: TaskNotif
   return (
     <Transition appear show={show} as={Fragment}>
       <Dialog as="div" className="relative z-10" onClose={onClose}>
-        <Transition.Child
+        <TransitionChild
           as={Fragment}
           enter="ease-out duration-300"
           enterFrom="opacity-0"
@@ -144,11 +144,11 @@ export default function TaskNotificationModal({ task, show, onClose }: TaskNotif
           leaveTo="opacity-0"
         >
           <div className="fixed inset-0 bg-black/25" />
-        </Transition.Child>
+        </TransitionChild>
 
         <div className="fixed inset-0 overflow-y-auto">
           <div className="flex min-h-full items-center justify-center p-4 text-center">
-            <Transition.Child
+            <TransitionChild
               as={Fragment}
               enter="ease-out duration-300"
               enterFrom="opacity-0 scale-95"
@@ -157,12 +157,12 @@ export default function TaskNotificationModal({ task, show, onClose }: TaskNotif
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
+              <DialogPanel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
                 <div className="flex items-center justify-between mb-4">
-                  <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-gray-900 flex items-center">
+                  <DialogTitle as="h3" className="text-lg font-medium leading-6 text-gray-900 flex items-center">
                     <BellIcon className="h-6 w-6 text-blue-500 mr-2" />
                     Configurar Recordatorio
-                  </Dialog.Title>
+                  </DialogTitle>
                   <button
                     onClick={onClose}
                     className="text-gray-400 hover:text-gray-600"
@@ -312,8 +312,8 @@ export default function TaskNotificationModal({ task, show, onClose }: TaskNotif
                     )}
                   </div>
                 )}
-              </Dialog.Panel>
-            </Transition.Child>
+              </DialogPanel>
+            </TransitionChild>
           </div>
         </div>
       </Dialog>

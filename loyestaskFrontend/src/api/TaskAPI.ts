@@ -1,6 +1,7 @@
 import { isAxiosError } from "axios"
 import api from "@/lib/axios"
-import { type TaskFormData,type Project, type Task, taskSchema } from "../types"
+import { taskSchema } from "@/types/index";
+import type { TaskFormData, Project, Task, Collaborator } from "@/types/index";
 
 type TaskAPI = {
     formData: TaskFormData
@@ -60,6 +61,67 @@ export async function deleteTask({projectId, taskId} : Pick<TaskAPI, 'projectId'
         if(isAxiosError(error) && error.response){
             throw new Error(error.response.data.error)
         }
+    }
+}
+
+// Colaboradores: asignar
+export async function addCollaborator({ projectId, taskId, userId }: { projectId: string, taskId: string, userId: string }) {
+    try {
+        const url = `/projects/${projectId}/tasks/${taskId}/collaborators`;
+        const { data } = await api.post(url, { userId });
+        return data;
+    } catch (error) {
+        if (isAxiosError(error) && error.response) {
+            const errorData = error.response.data;
+            
+            // Manejar diferentes formatos de error del backend
+            let errorMessage = 'Error al asignar colaborador';
+            
+            if (errorData.error) {
+                // Formato: { error: "mensaje" }
+                errorMessage = errorData.error;
+            } else if (errorData.errors && Array.isArray(errorData.errors)) {
+                // Formato: { errors: [{ msg: "mensaje" }] }
+                errorMessage = errorData.errors.map((err: { msg?: string; message?: string } | string) => {
+                    if (typeof err === 'string') return err;
+                    return err.msg || err.message || 'Error de validación';
+                }).join(', ');
+            } else if (errorData.message) {
+                // Formato: { message: "mensaje" }
+                errorMessage = errorData.message;
+            }
+            
+            throw new Error(errorMessage);
+        }
+        throw new Error('Error de conexión al asignar colaborador');
+    }
+}
+
+// Colaboradores: eliminar
+export async function removeCollaborator({ projectId, taskId, userId }: { projectId: string, taskId: string, userId: string }) {
+    try {
+        const url = `/projects/${projectId}/tasks/${taskId}/collaborators/${userId}`;
+        const { data } = await api.delete(url);
+        return data;
+    } catch (error) {
+        if (isAxiosError(error) && error.response) {
+            throw new Error(error.response.data.error);
+        }
+        throw new Error('Error al eliminar colaborador');
+    }
+}
+
+// Colaboradores: listar disponibles
+export async function getAvailableCollaborators({ projectId, taskId }: { projectId: string, taskId: string }) {
+    try {
+        const url = `/projects/${projectId}/tasks/${taskId}/collaborators/available`;
+        const { data } = await api.get<Collaborator[]>(url);
+        return data;
+    } catch (error) {
+        if (isAxiosError(error) && error.response) {
+            throw new Error(error.response.data.error);
+        }
+        throw new Error('Error al obtener colaboradores disponibles');
     }
 }
 

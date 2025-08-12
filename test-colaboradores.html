@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test API Colaboradores</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .error { color: red; }
+        .success { color: green; }
+        .info { color: blue; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+        .log { background: #f5f5f5; padding: 10px; margin: 10px 0; border-radius: 5px; font-family: monospace; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Test API Colaboradores - Manejo de Errores</h1>
+        
+        <div class="test-section">
+            <h3>Test 1: Error 400 - Datos inválidos</h3>
+            <button onclick="testInvalidData()">Probar con datos inválidos</button>
+            <div id="test1-log" class="log"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Test 2: Error 400 - Usuario no en proyecto</h3>
+            <button onclick="testUserNotInProject()">Probar usuario no en proyecto</button>
+            <div id="test2-log" class="log"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Test 3: Error de conexión</h3>
+            <button onclick="testConnectionError()">Probar error de conexión</button>
+            <div id="test3-log" class="log"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Test 4: Datos correctos (mock)</h3>
+            <button onclick="testValidData()">Probar datos válidos (simulado)</button>
+            <div id="test4-log" class="log"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:4001/api';
+        
+        function log(testId, message, type = 'info') {
+            const logElement = document.getElementById(`${testId}-log`);
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : 'info';
+            logElement.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
+        }
+
+        async function makeRequest(url, data) {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer fake-token' // Token simulado
+                },
+                body: JSON.stringify(data)
+            });
+            
+            const responseData = await response.json();
+            return { status: response.status, data: responseData };
+        }
+
+        async function testInvalidData() {
+            log('test1', 'Iniciando test con datos inválidos...', 'info');
+            try {
+                const result = await makeRequest(`${API_BASE}/projects/invalid-id/tasks/invalid-id/collaborators`, {
+                    userId: '' // ID vacío
+                });
+                
+                log('test1', `Status: ${result.status}`, result.status >= 400 ? 'error' : 'success');
+                log('test1', `Response: ${JSON.stringify(result.data, null, 2)}`, 'info');
+                
+                if (result.data.error) {
+                    log('test1', `✅ Error message extracted: ${result.data.error}`, 'success');
+                } else if (result.data.errors) {
+                    log('test1', `✅ Validation errors: ${JSON.stringify(result.data.errors)}`, 'success');
+                }
+                
+            } catch (error) {
+                log('test1', `Network Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testUserNotInProject() {
+            log('test2', 'Iniciando test con usuario no en proyecto...', 'info');
+            try {
+                const result = await makeRequest(`${API_BASE}/projects/507f1f77bcf86cd799439011/tasks/507f1f77bcf86cd799439011/collaborators`, {
+                    userId: '507f1f77bcf86cd799439012' // ID válido pero no en proyecto
+                });
+                
+                log('test2', `Status: ${result.status}`, result.status >= 400 ? 'error' : 'success');
+                log('test2', `Response: ${JSON.stringify(result.data, null, 2)}`, 'info');
+                
+                if (result.data.error) {
+                    log('test2', `✅ Error message extracted: ${result.data.error}`, 'success');
+                }
+                
+            } catch (error) {
+                log('test2', `Network Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testConnectionError() {
+            log('test3', 'Iniciando test de error de conexión...', 'info');
+            try {
+                const result = await makeRequest(`http://localhost:9999/api/projects/test/tasks/test/collaborators`, {
+                    userId: '507f1f77bcf86cd799439011'
+                });
+                
+                log('test3', `Unexpected success: ${JSON.stringify(result)}`, 'error');
+                
+            } catch (error) {
+                log('test3', `✅ Connection error handled: ${error.message}`, 'success');
+            }
+        }
+
+        function testValidData() {
+            log('test4', 'Simulando respuesta exitosa...', 'info');
+            
+            // Simular respuesta exitosa
+            const mockResponse = {
+                status: 200,
+                data: { message: 'Colaborador asignado correctamente' }
+            };
+            
+            log('test4', `Status: ${mockResponse.status}`, 'success');
+            log('test4', `Response: ${JSON.stringify(mockResponse.data, null, 2)}`, 'success');
+            log('test4', `✅ Success message: ${mockResponse.data.message}`, 'success');
+        }
+
+        // Agregar listener para mostrar errores de red
+        window.addEventListener('unhandledrejection', event => {
+            console.error('Unhandled promise rejection:', event.reason);
+        });
+    </script>
+</body>
+</html>

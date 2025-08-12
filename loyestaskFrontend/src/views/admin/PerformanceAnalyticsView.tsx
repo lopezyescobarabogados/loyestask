@@ -257,12 +257,19 @@ const PerformanceAnalyticsView: React.FC = () => {
                       {Math.abs(user.metrics.productivityTrend).toFixed(1)}%
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                     <button
                       onClick={() => handleCreateEvaluation(user.user._id, user.user.name)}
                       className="text-indigo-600 hover:text-indigo-900"
                     >
-                      Evaluar
+                      Evaluar Manual
+                    </button>
+                    <span className="text-gray-300">|</span>
+                    <button
+                      onClick={() => window.open(`/admin/performance/automated/${user.user._id}`, '_blank')}
+                      className="text-green-600 hover:text-green-900"
+                    >
+                      🤖 Auto
                     </button>
                   </td>
                 </tr>

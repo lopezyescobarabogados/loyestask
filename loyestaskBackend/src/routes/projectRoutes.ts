@@ -77,6 +77,16 @@ router.post(
   ProjectController.updatePriority,
 );
 
+router.post(
+  "/:projectId/status",
+  param("projectId").isMongoId().withMessage("Id no valido"),
+   body("status")
+    .notEmpty().withMessage("El estado del proyecto es obligatorio"),
+  handleInputErrors,
+  hasAuthorization,
+  ProjectController.updateStatus,
+);
+
 /** Routes for tasks */
 router.post(
   "/:projectId/tasks",
@@ -136,6 +146,40 @@ router.post("/:projectId/tasks/:taskId/status",
   taskExists,
   taskBelongsToProject,
   TaskController.updateStatus
+);
+
+// Asignar colaborador a una tarea (solo manager del proyecto)
+router.post(
+  "/:projectId/tasks/:taskId/collaborators",
+  hasAuthorization,
+  param("taskId").isMongoId().withMessage("Id no valido"),
+  body('userId').isMongoId().withMessage('ID de usuario no valido'),
+  handleInputErrors,
+  taskExists,
+  taskBelongsToProject,
+  TaskController.addCollaborator
+);
+
+// Listar colaboradores disponibles (manager o miembros no asignados)
+router.get(
+  "/:projectId/tasks/:taskId/collaborators/available",
+  param("taskId").isMongoId().withMessage("Id no valido"),
+  handleInputErrors,
+  taskExists,
+  taskBelongsToProject,
+  TaskController.getAvailableCollaborators
+);
+
+// Eliminar colaborador de una tarea (solo manager del proyecto)
+router.delete(
+  "/:projectId/tasks/:taskId/collaborators/:userId",
+  hasAuthorization,
+  param("taskId").isMongoId().withMessage("Id no valido"),
+  param('userId').isMongoId().withMessage('ID de usuario no valido'),
+  handleInputErrors,
+  taskExists,
+  taskBelongsToProject,
+  TaskController.removeCollaborator
 );
 
 /** Routes for teams */

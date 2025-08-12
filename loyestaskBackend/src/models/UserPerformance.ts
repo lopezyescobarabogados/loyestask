@@ -71,10 +71,11 @@ const UserPerformanceSchema: Schema = new Schema(
   { timestamps: true }
 );
 
-// Índices para optimizar consultas
+// Índices optimizados para consultas de performance
 UserPerformanceSchema.index({ user: 1, createdAt: -1 });
 UserPerformanceSchema.index({ project: 1, user: 1 });
 UserPerformanceSchema.index({ isCompleted: 1, user: 1 });
+UserPerformanceSchema.index({ user: 1, isCompleted: 1, completionTime: 1 }); // Para métricas
 
 const UserPerformance = mongoose.model<IUserPerformance>("UserPerformance", UserPerformanceSchema);
 export default UserPerformance;

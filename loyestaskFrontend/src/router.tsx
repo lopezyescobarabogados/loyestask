@@ -18,6 +18,7 @@ import ProfileLayout from './layouts/ProfileLayout'
 import NotFound from './views/404/NotFound'
 import AdminView from './views/admin/AdminView'
 import PerformanceAnalyticsView from './views/admin/PerformanceAnalyticsView'
+import AutomatedEvaluationView from './views/admin/AutomatedEvaluationView'
 import UserPerformanceDashboard from './views/profile/UserPerformanceDashboard'
 import NotificationsView from './views/notifications/NotificationsView'
 
@@ -33,6 +34,7 @@ export default function Router(){
                     <Route path='/projects/:projectId/team' element={<ProjectTeamView />} />
                     <Route path='/admin' element={<AdminView />} />
                     <Route path='/admin/performance' element={<PerformanceAnalyticsView />} />
+                    <Route path='/admin/performance/automated/:userId' element={<AutomatedEvaluationView />} />
                     <Route element={<ProfileLayout />}> 
                         <Route path='/profile/' element={<ProfileView />} />
                         <Route path='/profile/update-password' element={<ChangePasswordView />} />

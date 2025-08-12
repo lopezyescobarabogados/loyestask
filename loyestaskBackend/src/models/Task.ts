@@ -28,6 +28,11 @@ export interface ITask extends Document {
   project: Types.ObjectId;
   status: TaskStatus;
   dueDate: Date;
+  /**
+   * Colaboradores asignados directamente a la tarea.
+   * Solo pueden ser usuarios que pertenezcan al proyecto (manager o miembros del team).
+   */
+  collaborators?: Types.ObjectId[];
   completedBy: {
     user: Types.ObjectId;
     status: TaskStatus;
@@ -59,6 +64,12 @@ export const TaskSchema: Schema = new Schema(
       enum: Object.values(taskStatus),
       default: taskStatus.PENDING,
     },
+    collaborators: [
+      {
+        type: Types.ObjectId,
+        ref: "User",
+      }
+    ],
     dueDate: Date,
     completedBy: [
       {
@@ -120,7 +131,14 @@ export const TaskSchema: Schema = new Schema(
 TaskSchema.pre('deleteOne', {document: true}, async function() {
     const taskId = this._id
     if(!taskId) return;
+    
+    // Eliminar notas relacionadas
     await Note.deleteMany({task: taskId})
+    
+    // Eliminar registros de performance huérfanos
+    const UserPerformance = require('./UserPerformance').default;
+    const deletedPerformanceCount = await UserPerformance.deleteMany({task: taskId});
+    console.log(`🧹 Limpieza: Eliminados ${deletedPerformanceCount.deletedCount} registros de performance para tarea ${taskId}`);
     
     // Eliminar archivos físicos del sistema de archivos
     const fs = require('fs').promises;

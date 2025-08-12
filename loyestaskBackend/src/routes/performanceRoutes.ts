@@ -32,6 +32,14 @@ router.get('/users/:userId/predictions',
     PerformanceController.getPerformancePredictions
 );
 
+// Generar evaluación automatizada objetiva (solo admin)
+router.get('/users/:userId/automated-evaluation',
+    requireAdmin,
+    param('userId').isMongoId().withMessage('ID de usuario no válido'),
+    handleInputErrors,
+    PerformanceController.generateAutomatedEvaluation
+);
+
 // Crear evaluación de usuario (solo admin)
 router.post('/users/:userId/evaluations',
     requireAdmin,
