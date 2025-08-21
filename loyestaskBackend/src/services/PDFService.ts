@@ -688,4 +688,266 @@ export class PDFService {
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   }
+
+  /**
+   * Genera un PDF resumido de todas las tareas activas para administradores
+   */
+  static async generateAdminSummaryPDF(summaryData: any): Promise<Buffer> {
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
+
+    try {
+      const page = await browser.newPage();
+      
+      // Generar HTML del reporte resumido
+      const htmlContent = this.generateSummaryHTML(summaryData);
+      
+      // Configurar el contenido HTML
+      await page.setContent(htmlContent, {
+        waitUntil: 'networkidle0'
+      });
+      
+      // Generar PDF
+      const pdfBuffer = await page.pdf({
+        format: 'A4',
+        printBackground: true,
+        margin: {
+          top: '20mm',
+          right: '15mm',
+          bottom: '20mm',
+          left: '15mm'
+        }
+      });
+      
+      return Buffer.from(pdfBuffer);
+    } finally {
+      await browser.close();
+    }
+  }
+
+  /**
+   * Genera el HTML completo para el reporte resumido
+   */
+  private static generateSummaryHTML(summaryData: any): string {
+    return `
+      <!DOCTYPE html>
+      <html lang="es">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Reporte Resumido de Tareas Activas</title>
+        <style>
+          ${this.getSummaryStyles()}
+        </style>
+      </head>
+      <body>
+        ${this.generateSummaryHeader()}
+        ${this.generateSummaryContent(summaryData)}
+        ${this.generateSummaryFooter()}
+      </body>
+      </html>
+    `;
+  }
+
+  /**
+   * CSS Styles para el reporte resumido
+   */
+  private static getSummaryStyles(): string {
+    return `
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      
+      body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        font-size: 12px;
+        line-height: 1.4;
+        color: #333;
+        background: #fff;
+      }
+      
+      .header {
+        text-align: center;
+        margin-bottom: 30px;
+        padding: 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 8px;
+      }
+      
+      .header h1 {
+        font-size: 20px;
+        margin-bottom: 8px;
+        font-weight: 700;
+      }
+      
+      .header .subtitle {
+        font-size: 12px;
+        opacity: 0.9;
+      }
+      
+      .project-section {
+        margin-bottom: 25px;
+        page-break-inside: avoid;
+      }
+      
+      .project-header {
+        background: #f8f9fa;
+        padding: 12px 15px;
+        border-left: 4px solid #007bff;
+        margin-bottom: 10px;
+      }
+      
+      .project-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 4px;
+      }
+      
+      .project-client {
+        font-size: 11px;
+        color: #6c757d;
+      }
+      
+      .tasks-list {
+        padding-left: 20px;
+      }
+      
+      .task-item {
+        margin-bottom: 6px;
+        font-size: 11px;
+        line-height: 1.3;
+      }
+      
+      .task-bullet {
+        color: #28a745;
+        margin-right: 8px;
+      }
+      
+      .no-tasks {
+        color: #6c757d;
+        font-style: italic;
+        padding-left: 20px;
+        font-size: 11px;
+      }
+      
+      .footer {
+        text-align: center;
+        margin-top: 30px;
+        padding: 15px;
+        font-size: 10px;
+        color: #6c757d;
+        border-top: 1px solid #dee2e6;
+      }
+      
+      .summary-stats {
+        background: #e9ecef;
+        padding: 15px;
+        border-radius: 6px;
+        margin-bottom: 20px;
+        text-align: center;
+      }
+      
+      .stats-item {
+        display: inline-block;
+        margin: 0 15px;
+        font-size: 11px;
+      }
+      
+      .stats-number {
+        font-weight: 700;
+        font-size: 16px;
+        color: #007bff;
+        display: block;
+      }
+    `;
+  }
+
+  /**
+   * Genera el header del reporte resumido
+   */
+  private static generateSummaryHeader(): string {
+    const currentDate = new Date().toLocaleDateString('es-ES', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    return `
+      <div class="header">
+        <h1>Reporte Resumido de Tareas Activas</h1>
+        <div class="subtitle">Generado el ${currentDate}</div>
+      </div>
+    `;
+  }
+
+  /**
+   * Genera el contenido principal del reporte resumido
+   */
+  private static generateSummaryContent(summaryData: any): string {
+    const { projects } = summaryData;
+    
+    // Calcular estadísticas
+    const totalProjects = projects.length;
+    const totalTasks = projects.reduce((sum: number, project: any) => sum + project.tasks.length, 0);
+    const projectsWithTasks = projects.filter((project: any) => project.tasks.length > 0).length;
+
+    const statsSection = `
+      <div class="summary-stats">
+        <div class="stats-item">
+          <span class="stats-number">${totalProjects}</span>
+          Proyectos Activos
+        </div>
+        <div class="stats-item">
+          <span class="stats-number">${totalTasks}</span>
+          Tareas Activas
+        </div>
+        <div class="stats-item">
+          <span class="stats-number">${projectsWithTasks}</span>
+          Proyectos con Tareas
+        </div>
+      </div>
+    `;
+
+    const projectsSection = projects.map((project: any) => {
+      const tasksHtml = project.tasks.length > 0 
+        ? project.tasks.map((task: any) => `
+            <div class="task-item">
+              <span class="task-bullet">•</span>${task.name}
+            </div>
+          `).join('')
+        : '<div class="no-tasks">Sin tareas activas</div>';
+
+      return `
+        <div class="project-section">
+          <div class="project-header">
+            <div class="project-title">${project.projectName}</div>
+            <div class="project-client">Cliente: ${project.clientName}</div>
+          </div>
+          <div class="tasks-list">
+            ${tasksHtml}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    return statsSection + projectsSection;
+  }
+
+  /**
+   * Genera el footer del reporte resumido
+   */
+  private static generateSummaryFooter(): string {
+    return `
+      <div class="footer">
+        <div>LoyesTask - Sistema de Gestión de Tareas</div>
+        <div>Reporte generado automáticamente</div>
+      </div>
+    `;
+  }
 }

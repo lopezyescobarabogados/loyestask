@@ -21,6 +21,8 @@ import PerformanceAnalyticsView from './views/admin/PerformanceAnalyticsView'
 import AutomatedEvaluationView from './views/admin/AutomatedEvaluationView'
 import UserPerformanceDashboard from './views/profile/UserPerformanceDashboard'
 import NotificationsView from './views/notifications/NotificationsView'
+import FinancialView from './views/financial/FinancialView'
+import ClientDebtView from './views/financial/ClientDebtView'
 
 export default function Router(){
     return(
@@ -35,6 +37,8 @@ export default function Router(){
                     <Route path='/admin' element={<AdminView />} />
                     <Route path='/admin/performance' element={<PerformanceAnalyticsView />} />
                     <Route path='/admin/performance/automated/:userId' element={<AutomatedEvaluationView />} />
+                    <Route path='/admin/financial' element={<FinancialView />} />
+                    <Route path='/admin/clients' element={<ClientDebtView />} />
                     <Route element={<ProfileLayout />}> 
                         <Route path='/profile/' element={<ProfileView />} />
                         <Route path='/profile/update-password' element={<ChangePasswordView />} />

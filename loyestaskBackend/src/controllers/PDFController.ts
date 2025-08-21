@@ -6,6 +6,74 @@ import { PDFService, ProjectPDFData } from '../services/PDFService';
 
 export class PDFController {
   /**
+   * Genera y descarga un PDF resumido de todas las tareas activas para administradores
+   */
+  static generateAdminSummaryPDF = async (req: Request, res: Response) => {
+    try {
+      // Obtener todos los proyectos activos (no completados)
+      const projects = await Project.find({ 
+        status: 'active' 
+      })
+        .populate('manager', 'name email')
+        .lean();
+
+      if (!projects || projects.length === 0) {
+        res.status(404).json({ error: 'No se encontraron proyectos activos' });
+        return;
+      }
+
+      // Obtener todas las tareas activas de todos los proyectos activos
+      const projectIds = projects.map(project => project._id);
+      const tasks = await Task.find({ 
+        project: { $in: projectIds },
+        status: { $ne: 'completed' } // Solo tareas NO completadas
+      })
+        .populate('project', 'projectName clientName')
+        .lean();
+
+      // Agrupar tareas por proyecto
+      const tasksByProject = tasks.reduce((acc: any, task: any) => {
+        const projectId = task.project._id.toString();
+        if (!acc[projectId]) {
+          acc[projectId] = {
+            project: task.project,
+            tasks: []
+          };
+        }
+        acc[projectId].tasks.push(task);
+        return acc;
+      }, {});
+
+      // Combinar datos para el PDF
+      const summaryData = {
+        projects: projects.map(project => ({
+          ...project,
+          tasks: tasksByProject[project._id.toString()]?.tasks || []
+        }))
+      };
+
+      // Generar el PDF
+      const pdfBuffer = await PDFService.generateAdminSummaryPDF(summaryData);
+
+      // Configurar headers para descarga
+      const filename = `Reporte_Resumido_Tareas_${new Date().toISOString().split('T')[0]}.pdf`;
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+
+      // Enviar el PDF
+      res.send(pdfBuffer);
+
+    } catch (error) {
+      console.error('Error generando PDF resumido:', error);
+      res.status(500).json({ 
+        error: 'Error interno del servidor al generar el PDF resumido' 
+      });
+    }
+  };
+
+  /**
    * Genera y descarga un PDF completo del proyecto
    */
   static generateProjectPDF = async (req: Request, res: Response) => {

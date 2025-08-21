@@ -130,3 +130,46 @@ export async function validatePDFAccess(projectId: string): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * Descarga el reporte resumido de todas las tareas activas para administradores
+ */
+export async function downloadAdminSummaryPDF(): Promise<void> {
+  try {
+    const response = await api.get('/pdf/admin/summary/download', {
+      responseType: 'blob'
+    });
+
+    // Extraer el nombre del archivo de los headers o crear uno por defecto
+    const contentDisposition = response.headers['content-disposition'];
+    let fileName = `Reporte_Resumido_Tareas_${new Date().toISOString().split('T')[0]}.pdf`;
+    
+    if (contentDisposition) {
+      const fileNameMatch = contentDisposition.match(/filename="(.+)"/);
+      if (fileNameMatch) {
+        fileName = fileNameMatch[1];
+      }
+    }
+
+    // Crear blob y enlace de descarga
+    const blob = new Blob([response.data], { type: 'application/pdf' });
+    const url = window.URL.createObjectURL(blob);
+    
+    // Crear enlace temporal y hacer clic para descargar
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    
+    // Limpiar
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+    
+  } catch (error) {
+    if (isAxiosError(error) && error.response) {
+      throw new Error(error.response.data.error || 'Error al descargar el reporte resumido');
+    }
+    throw new Error('Error al descargar el reporte resumido de tareas');
+  }
+}

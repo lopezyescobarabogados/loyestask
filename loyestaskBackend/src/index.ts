@@ -3,6 +3,7 @@ import server from "./server";
 import { connectDB } from "./config/db";
 import { NotificationService } from "./services/NotificationService";
 import { InitializationService } from "./services/InitializationService";
+import { FinancialNotificationService } from "./services/FinancialNotificationService";
 import { EnvironmentValidator } from "./utils/environmentValidator";
 
 // Función principal de inicio
@@ -35,6 +36,7 @@ async function startServer() {
 
     // Inicializar servicios
     NotificationService.getInstance().initialize();
+    FinancialNotificationService.getInstance(); // Inicializar notificaciones financieras
 
     const port = process.env.PORT || 4000;
 
@@ -56,3 +58,4 @@ async function startServer() {
 
 // Iniciar el servidor
 startServer();
+

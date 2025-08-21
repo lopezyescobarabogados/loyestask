@@ -11,7 +11,7 @@ export const corsConfig: CorsOptions = {
         
         // Allow requests from localhost during development
         if (process.env.NODE_ENV !== 'production') {
-            whitelist.push('http://localhost:5173', 'http://127.0.0.1:5173')
+            whitelist.push('http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:5174', 'http://127.0.0.1:5174')
         }
         
         // Allow API tools during development

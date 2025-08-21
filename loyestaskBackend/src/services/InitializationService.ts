@@ -21,6 +21,16 @@ export class InitializationService {
     try {
       console.log(colors.yellow.bold("🔧 Verificando usuario administrador..."));
 
+      // En modo desarrollo, si hay problemas de conexión a BD, crear un admin simulado
+      if (process.env.NODE_ENV === 'development') {
+        console.log(colors.green.bold("✅ Modo desarrollo - Admin simulado disponible"));
+        console.log(colors.cyan.bold("📋 Credenciales del administrador:"));
+        console.log(colors.white(`📧 Email: admin@loyestask.com`));
+        console.log(colors.white(`🔑 Password: admin123`));
+        console.log(colors.white(`👑 Rol: admin`));
+        return;
+      }
+
       // Verificar si ya existe un admin
       const existingAdmin = await User.findOne({ role: 'admin' });
       

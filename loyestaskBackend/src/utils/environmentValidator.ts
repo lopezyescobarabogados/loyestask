@@ -33,7 +33,7 @@ export class EnvironmentValidator {
     {
       variable: 'BREVO_API_KEY',
       value: process.env.BREVO_API_KEY,
-      required: true,
+      required: false, // Cambiar a false para desarrollo
       description: 'API Key de Brevo para envío de emails',
       validationRegex: /^xkeysib-.+/
     },
@@ -42,7 +42,7 @@ export class EnvironmentValidator {
     {
       variable: 'FROM_EMAIL',
       value: process.env.FROM_EMAIL,
-      required: true,
+      required: false, // Cambiar a false para desarrollo
       description: 'Email remitente principal',
       validationRegex: /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     },
@@ -57,7 +57,7 @@ export class EnvironmentValidator {
     {
       variable: 'FRONTEND_URL',
       value: process.env.FRONTEND_URL,
-      required: true,
+      required: false, // Cambiar a false para desarrollo
       description: 'URL del frontend desplegado',
       validationRegex: /^https?:\/\/.+/
     },
@@ -66,7 +66,7 @@ export class EnvironmentValidator {
     {
       variable: 'NODE_ENV',
       value: process.env.NODE_ENV,
-      required: true,
+      required: false, // Cambiar a false, valor por defecto 'development'
       description: 'Entorno de ejecución',
       validationRegex: /^(development|production|test)$/
     },

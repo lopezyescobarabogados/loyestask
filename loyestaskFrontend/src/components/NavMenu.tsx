@@ -73,6 +73,18 @@ export const NavMenu = ({name}: NavMenuProps) => {
                 >
                   Analytics de Rendimiento
                 </Link>
+                <Link
+                  to='/admin/financial'
+                  className='block p-2 hover:text-blue-950'
+                >
+                  Gestión Financiera
+                </Link>
+                <Link
+                  to='/admin/clients'
+                  className='block p-2 hover:text-blue-950'
+                >
+                  Clientes y Deudas
+                </Link>
               </>
             )}
             <button

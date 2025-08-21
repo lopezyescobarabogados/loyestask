@@ -13,7 +13,17 @@ import performanceRoutes from "./routes/performanceRoutes";
 import notificationRoutes from "./routes/notificationRoutes";
 import configRoutes from "./routes/configRoutes";
 import pdfRoutes from "./routes/pdfRoutes";
+import invoiceRoutes from "./routes/invoiceRoutes";
+import paymentRoutes from "./routes/paymentRoutes";
+import accountRoutes from "./routes/accountRoutes";
+import financialPeriodRoutes from "./routes/financialPeriodRoutes";
+import financialReportRoutes from "./routes/financialReportRoutes";
+import financialExportRoutes from "./routes/financialExportRoutes";
+import clientRoutes from "./routes/clientRoutes";
+import debtRoutes from "./routes/debtRoutes";
+import devRoutes from "./routes/devRoutes";
 import { ensureUploadsDirectory } from "./services/FileService";
+import { FinancialNotificationService } from "./services/FinancialNotificationService";
 
 // Configurar variables de entorno
 dotenv.config();
@@ -21,8 +31,11 @@ dotenv.config();
 // Conectar a la base de datos
 connectDB();
 
-// Inicializar directorio de uploads
+// Inicializar directorios de uploads
 ensureUploadsDirectory().catch(console.error);
+
+// Inicializar servicios de notificaciones financieras
+FinancialNotificationService.getInstance();
 
 const app = express();
 
@@ -77,7 +90,16 @@ app.get('/', (req, res) => {
             performance: '/api/performance',
             notifications: '/api/notifications',
             config: '/api/config',
-            pdf: '/api/pdf'
+            pdf: '/api/pdf',
+            pdfAdminSummary: '/api/pdf/admin/summary/download',
+            invoices: '/api/invoices',
+            payments: '/api/payments',
+            accounts: '/api/accounts',
+            financialPeriods: '/api/financial-periods',
+            financialReports: '/api/financial-reports',
+            financialExports: '/api/financial-exports',
+            clients: '/api/clients',
+            debts: '/api/debts'
         }
     });
 });
@@ -90,6 +112,19 @@ app.use("/api/performance", performanceRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/config", configRoutes);
 app.use("/api/pdf", pdfRoutes);
+app.use("/api/invoices", invoiceRoutes);
+app.use("/api/payments", paymentRoutes);
+app.use("/api/accounts", accountRoutes);
+app.use("/api/financial-periods", financialPeriodRoutes);
+app.use("/api/financial-reports", financialReportRoutes);
+app.use("/api/financial-exports", financialExportRoutes);
+app.use("/api/clients", clientRoutes);
+app.use("/api/debts", debtRoutes);
+
+// Rutas de desarrollo
+if (process.env.NODE_ENV === 'development') {
+    app.use("/api/dev", devRoutes);
+}
 
 // 404 handler
 app.use('*', (req, res) => {

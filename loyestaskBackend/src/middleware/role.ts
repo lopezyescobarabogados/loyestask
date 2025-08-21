@@ -17,3 +17,6 @@ export const requireUser = (req: Request, res: Response, next: NextFunction) => 
     }
     next()
 }
+
+// Alias para compatibilidad
+export const isAdmin = requireAdmin

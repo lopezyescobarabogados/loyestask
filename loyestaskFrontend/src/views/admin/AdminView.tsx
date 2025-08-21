@@ -1,30 +1,11 @@
-import { Tab } from '@headlessui/react';
+import { Tab, TabGroup, TabList, TabPanels, TabPanel } from '@headlessui/react';
 import { useRole } from '@/hooks/useRole';
 import { Navigate } from 'react-router-dom';
-import { UserGroupIcon, BellIcon, ChartBarIcon } from '@heroicons/react/24/outline';
+import { UserGroupIcon, BellIcon, ChartBarIcon, CurrencyDollarIcon } from '@heroicons/react/24/outline';
 import UserManagement from '@/components/admin/UserManagement';
 import AdminNotificationPanel from '@/components/admin/AdminNotificationPanel';
-
-// Componente wrapper para las analíticas
-function AdminAnalytics() {
-    return (
-        <div className="space-y-6">
-            <div className="bg-white shadow rounded-lg p-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">
-                    Análisis de Rendimiento del Sistema
-                </h3>
-                <p className="text-sm text-gray-600 mb-4">
-                    Esta sección mostrará métricas detalladas del sistema y rendimiento de usuarios.
-                </p>
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <p className="text-sm text-blue-700">
-                        💡 <strong>Próximamente:</strong> Gráficos de rendimiento, métricas de productividad y análisis avanzados del sistema.
-                    </p>
-                </div>
-            </div>
-        </div>
-    );
-}
+import FinancialManagement from '@/components/financial/FinancialManagement';
+import PerformanceAnalyticsView from '@/views/admin/PerformanceAnalyticsView';
 
 export default function AdminView() {
     const { isAdmin } = useRole();
@@ -47,7 +28,12 @@ export default function AdminView() {
         {
             name: 'Análisis de Rendimiento',
             icon: ChartBarIcon,
-            component: AdminAnalytics,
+            component: PerformanceAnalyticsView,
+        },
+        {
+            name: 'Gestión Financiera',
+            icon: CurrencyDollarIcon,
+            component: FinancialManagement,
         },
     ];
     
@@ -60,8 +46,8 @@ export default function AdminView() {
                 </p>
             </div>
             
-            <Tab.Group>
-                <Tab.List className="flex space-x-1 rounded-xl bg-blue-900/20 p-1 mb-6">
+            <TabGroup>
+                <TabList className="flex space-x-1 rounded-xl bg-blue-900/20 p-1 mb-6">
                     {tabs.map((tab) => (
                         <Tab
                             key={tab.name}
@@ -80,19 +66,19 @@ export default function AdminView() {
                             </div>
                         </Tab>
                     ))}
-                </Tab.List>
+                </TabList>
                 
-                <Tab.Panels>
+                <TabPanels>
                     {tabs.map((tab, idx) => (
-                        <Tab.Panel
+                        <TabPanel
                             key={idx}
                             className="rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-60"
                         >
                             <tab.component />
-                        </Tab.Panel>
+                        </TabPanel>
                     ))}
-                </Tab.Panels>
-            </Tab.Group>
+                </TabPanels>
+            </TabGroup>
         </div>
     );
 }

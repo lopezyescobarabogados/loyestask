@@ -2,15 +2,19 @@ import { Fragment, useState } from 'react'
 import { Menu, MenuButton, MenuItem, MenuItems, Transition } from '@headlessui/react'
 import { EllipsisVerticalIcon, FunnelIcon } from '@heroicons/react/20/solid'
 import { Link, useLocation, useNavigate } from "react-router-dom"
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import { getProject } from "@/api/ProjectAPI"
 import { useAuth } from '@/hooks/useAuth'
+import { useRole } from '@/hooks/useRole'
+import { downloadAdminSummaryPDF } from '@/api/PDFAPI'
+import { toast } from 'react-toastify'
 import DeleteProjectModal from '@/components/projects/DeleteProjectModal'
 
 export default function DashboardView() {
   const location = useLocation()
   const navigate = useNavigate()
   const { data: user, isLoading: authLoading } = useAuth()
+  const { isAdmin } = useRole()
   
   // Estado para filtros
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'completed'>('all')
@@ -18,6 +22,17 @@ export default function DashboardView() {
   const { data, isLoading } = useQuery({
     queryKey: ['projects'],
     queryFn: getProject
+  })
+
+  // Mutación para descargar reporte de administrador
+  const { mutate: downloadReport, isPending: isDownloading } = useMutation({
+    mutationFn: downloadAdminSummaryPDF,
+    onSuccess: () => {
+      toast.success('Reporte descargado correctamente')
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Error al descargar el reporte')
+    }
   })
 
   // Función para obtener las clases según la prioridad
@@ -48,12 +63,30 @@ export default function DashboardView() {
       <p className="text-2xl font-light text-slate-500 mt-5">Maneja y administra tus Proyectos</p>
       
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 my-5">
-        <Link
-          className="bg-slate-500 hover:bg-slate-300 px-10 py-3 text-white text-xl font-bold cursor-pointer transition-colors"
-          to='/projects/create'
-        >
-          Nuevo Proyecto
-        </Link>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Link
+            className="bg-slate-500 hover:bg-slate-300 px-10 py-3 text-white text-xl font-bold cursor-pointer transition-colors"
+            to='/projects/create'
+          >
+            Nuevo Proyecto
+          </Link>
+          
+          {/* Botón para reporte resumido - Solo administradores */}
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => downloadReport()}
+              disabled={isDownloading}
+              className={`px-10 py-3 text-white text-xl font-bold cursor-pointer transition-colors ${
+                isDownloading 
+                  ? 'bg-gray-400 cursor-not-allowed' 
+                  : 'bg-blue-500 hover:bg-blue-600'
+              }`}
+            >
+              {isDownloading ? 'Generando...' : 'Reporte Resumido'}
+            </button>
+          )}
+        </div>
         
         {/* Filtros de estado */}
         <div className="flex items-center gap-2">
