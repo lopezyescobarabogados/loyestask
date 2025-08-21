@@ -865,6 +865,43 @@ export class PDFService {
         color: #007bff;
         display: block;
       }
+      
+      .collaborators-section {
+        background: #f0f8ff;
+        border: 1px solid #b3d9ff;
+        border-radius: 4px;
+        padding: 8px 12px;
+        margin: 8px 0;
+      }
+      
+      .collaborators-title {
+        font-size: 10px;
+        font-weight: 600;
+        color: #0066cc;
+        margin-bottom: 4px;
+      }
+      
+      .collaborators-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      
+      .collaborator-item {
+        background: #007bff;
+        color: white;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 9px;
+        font-weight: 500;
+      }
+      
+      .no-collaborators {
+        color: #6c757d;
+        font-style: italic;
+        font-size: 10px;
+        padding: 4px 8px;
+      }
     `;
   }
 
@@ -923,12 +960,47 @@ export class PDFService {
           `).join('')
         : '<div class="no-tasks">Sin tareas activas</div>';
 
+      // Generar lista de colaboradores
+      const collaboratorsHtml = (() => {
+        const allCollaborators = [];
+        
+        // Agregar manager
+        if (project.manager && project.manager.name) {
+          allCollaborators.push(`${project.manager.name} (Manager)`);
+        }
+        
+        // Agregar colaboradores del equipo
+        if (project.team && project.team.length > 0) {
+          project.team.forEach((member: any) => {
+            if (member.name) {
+              allCollaborators.push(member.name);
+            }
+          });
+        }
+        
+        if (allCollaborators.length > 0) {
+          return `
+            <div class="collaborators-section">
+              <div class="collaborators-title">Colaboradores:</div>
+              <div class="collaborators-list">
+                ${allCollaborators.map(collaborator => `
+                  <span class="collaborator-item">${collaborator}</span>
+                `).join('')}
+              </div>
+            </div>
+          `;
+        }
+        
+        return '<div class="no-collaborators">Sin colaboradores asignados</div>';
+      })();
+
       return `
         <div class="project-section">
           <div class="project-header">
             <div class="project-title">${project.projectName}</div>
             <div class="project-client">Cliente: ${project.clientName}</div>
           </div>
+          ${collaboratorsHtml}
           <div class="tasks-list">
             ${tasksHtml}
           </div>

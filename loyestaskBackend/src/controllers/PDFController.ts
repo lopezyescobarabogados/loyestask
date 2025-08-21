@@ -10,11 +10,12 @@ export class PDFController {
    */
   static generateAdminSummaryPDF = async (req: Request, res: Response) => {
     try {
-      // Obtener todos los proyectos activos (no completados)
+      // Obtener todos los proyectos activos (no completados) con colaboradores
       const projects = await Project.find({ 
         status: 'active' 
       })
         .populate('manager', 'name email')
+        .populate('team', 'name email') // Agregar población de colaboradores
         .lean();
 
       if (!projects || projects.length === 0) {
